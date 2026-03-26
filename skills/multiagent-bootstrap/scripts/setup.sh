@@ -225,16 +225,25 @@ customize_agent() {
         return 0
     fi
     
-    # Get user info
-    read -p "Your name: " USER_NAME
-    read -p "What should the agent call you? (e.g., Jim, boss, sir) [$USER_NAME]: " USER_CALL
+    # Get user info (use defaults if no terminal)
+    if [ -t 0 ]; then
+        read -p "Your name: " USER_NAME
+        read -p "What should the agent call you? [$USER_NAME]: " USER_CALL
+        read -p "Agent name (how you address it): [JimClaw] " AGENT_ID_NAME
+        read -p "Agent emoji: [🤖] " AGENT_EMOJI
+    elif [ -r /dev/tty ]; then
+        read -p "Your name: " USER_NAME < /dev/tty
+        read -p "What should the agent call you? [$USER_NAME]: " USER_CALL < /dev/tty
+        read -p "Agent name (how you address it): [JimClaw] " AGENT_ID_NAME < /dev/tty
+        read -p "Agent emoji: [🤖] " AGENT_EMOJI < /dev/tty
+    else
+        log_warn "No terminal available, using defaults"
+        USER_NAME="User"
+    fi
+    
+    # Set defaults
     USER_CALL="${USER_CALL:-$USER_NAME}"
-    
-    # Get agent identity
-    read -p "Agent name (how you address it): [JimClaw] " AGENT_ID_NAME
-    AGENT_ID_NAME="${AGENT_ID_NAME:-JimClaw}"
-    
-    read -p "Agent emoji: [🤖] " AGENT_EMOJI
+    AGENT_ID_NAME="${AGENT_ID_NAME:-JimClaw}"  
     AGENT_EMOJI="${AGENT_EMOJI:-🤖}"
     
     # Update USER.md
@@ -337,28 +346,31 @@ EOF
 # Prompt for Telegram setup
 prompt_telegram() {
     echo
-    log_info "Telegram Setup"
-    log_info "--------------"
-    
     if $DRY_RUN; then
         log_dry "Would prompt: 'Set up Telegram for this agent now? [y/N]'"
-        log_dry "Would skip by default, or run: $KIT_DIR/skills/multiagent-telegram-setup/scripts/setup-telegram-agent.py --agent $AGENT_NAME"
         return 0
     fi
     
-    read -p "Set up Telegram for this agent now? [y/N] " -n 1 -r
-    echo
-    
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        log_info "Running Telegram setup..."
-        if [ -f "$KIT_DIR/skills/multiagent-telegram-setup/scripts/setup-telegram-agent.py" ]; then
-            python3 "$KIT_DIR/skills/multiagent-telegram-setup/scripts/setup-telegram-agent.py" --agent "$AGENT_NAME"
+    # Only prompt if interactive terminal
+    if [ -t 0 ]; then
+        log_info "Telegram Setup"
+        log_info "--------------"
+        read -p "Set up Telegram for this agent now? [y/N] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            log_info "Running Telegram setup..."
+            if [ -f "$KIT_DIR/skills/multiagent-telegram-setup/scripts/setup-telegram-agent.py" ]; then
+                python3 "$KIT_DIR/skills/multiagent-telegram-setup/scripts/setup-telegram-agent.py" --agent "$AGENT_NAME"
+            else
+                log_warn "Telegram setup script not found"
+            fi
         else
-            log_warn "Telegram setup script not found"
+            log_info "Skipped. Run later with:"
+            log_info "  python3 $KIT_DIR/skills/multiagent-telegram-setup/scripts/setup-telegram-agent.py --agent $AGENT_NAME"
         fi
     else
-        log_info "Skipped Telegram setup. Run later with:"
-        log_info "  ./kit/skills/multiagent-telegram-setup/scripts/setup-telegram-agent.py"
+        log_info "Telegram setup: Run later with"
+        log_info "  python3 $KIT_DIR/skills/multiagent-telegram-setup/scripts/setup-telegram-agent.py --agent $AGENT_NAME"
     fi
 }
 
@@ -442,7 +454,10 @@ main() {
         echo "║  Next steps:                                           ║"
         echo "║    1. Restart OpenClaw: openclaw gateway restart       ║"
         echo "║    2. Verify agent: openclaw status                    ║"
-        echo "║    3. Start chatting with your agent!                  ║"
+        echo "║    3. Start chatting!                                  ║"
+        echo "║                                                        ║"
+        echo "║  Add more agents:                                      ║"
+        echo "║    ./kit/scripts/add-agent.sh [agent-name]             ║"
         echo "╚════════════════════════════════════════════════════════╝"
     fi
     echo

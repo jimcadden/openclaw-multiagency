@@ -89,14 +89,22 @@ openclaw gateway restart
 
 ## Creating Additional Agents
 
-After bootstrap, adding agents is manual (for now):
+After the initial setup, you can add more agents:
 
+**Quick way (recommended):**
+```bash
+cd ~/workspaces
+./kit/scripts/add-agent.sh my-new-agent
+# Script handles: workspace, identity customization, Telegram prompt, git commit
+```
+
+**Manual way:**
 ```bash
 cd ~/workspaces
 cp -r kit/workspace-template my-new-agent
-# Edit my-new-agent/IDENTITY.md, USER.md, etc.
-# Add to openclaw.json
-# Restart OpenClaw
+# Edit my-new-agent/IDENTITY.md, USER.md
+# Add agent to ~/.openclaw/openclaw.json
+# Restart OpenClaw: openclaw gateway restart
 ```
 
 ## Updating the Kit

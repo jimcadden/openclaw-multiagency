@@ -3,9 +3,16 @@
 # Install OpenClaw Multi-Agent Kit
 # 
 # Quick install: curl -fsSL https://raw.githubusercontent.com/jimcadden/openclaw-multiagent/main/install.sh | bash
-# With options: curl -fsSL ... | bash -s -- --workspace ~/my-workspace --agent main
 
 set -e
+
+# Check if we can run interactively
+if [ ! -t 0 ] && [ ! -r /dev/tty ]; then
+    echo "Error: This script requires an interactive terminal." >&2
+    echo "Run with: bash install.sh (not piped)" >&2
+    echo "Or use: ./install.sh --workspace DIR --agent NAME" >&2
+    exit 1
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -19,14 +26,64 @@ NC='\033[0m'
 KIT_REPO="https://github.com/jimcadden/openclaw-multiagent.git"
 WORKSPACE_DIR=""
 AGENT_NAME=""
-DRY_RUN=false
+
+# Input helper - reads from terminal even when piped
+read_tty() {
+    local prompt="$1"
+    local default="${2:-}"
+    local input=""
+    
+    # Print prompt to stderr (visible even when piping)
+    printf "%s" "$prompt" >&2
+    
+    if [ -t 0 ]; then
+        # stdin is terminal - read normally
+        IFS= read -r input
+    elif [ -r /dev/tty ]; then
+        # Read from tty
+        IFS= read -r input < /dev/tty
+    else
+        # Fallback - empty
+        input=""
+    fi
+    
+    # Trim trailing newline
+    input="${input%$'\n'}"
+    
+    # Use default if empty
+    if [ -z "$input" ] && [ -n "$default" ]; then
+        input="$default"
+    fi
+    
+    printf "%s" "$input"
+}
+
+# Yes/no prompt helper
+confirm() {
+    local prompt="$1"
+    local default="${2:-n}"
+    local input
+    local yn="[y/N]"
+    
+    if [ "$default" = "y" ]; then
+        yn="[Y/n]"
+    fi
+    
+    input=$(read_tty "$prompt $yn " "")
+    
+    if [ -z "$input" ]; then
+        input="$default"
+    fi
+    
+    [[ "$input" =~ ^[Yy]$ ]]
+}
 
 # Logging helpers
 log_info() { echo -e "${BLUE}ℹ${NC} $1"; }
 log_success() { echo -e "${GREEN}✓${NC} $1"; }
 log_warn() { echo -e "${YELLOW}⚠${NC} $1"; }
 log_error() { echo -e "${RED}✗${NC} $1"; }
-log_dry() { echo -e "${CYAN}[DRY RUN]${NC} $1"; }
+log_step() { echo; echo -e "${CYAN}▶ $1${NC}"; }
 
 # Parse arguments
 parse_args() {
@@ -40,86 +97,66 @@ parse_args() {
                 AGENT_NAME="$2"
                 shift 2
                 ;;
-            --dry-run|-n)
-                DRY_RUN=true
-                shift
-                ;;
             --help|-h)
                 show_help
                 exit 0
-                ;;
-            *)
-                log_error "Unknown option: $1"
-                show_help
-                exit 1
                 ;;
         esac
     done
 }
 
 show_help() {
-    cat << 'EOF'
-OpenClaw Multi-Agent Kit Installer
-
-Usage: install.sh [OPTIONS]
-
-Options:
-  -w, --workspace DIR    Workspace directory (default: ~/workspaces)
-  -a, --agent NAME       First agent name (default: main)
-  -n, --dry-run          Show what would be done without doing it
-  -h, --help             Show this help
-
-Examples:
-  # Default install
-  curl -fsSL https://raw.githubusercontent.com/.../install.sh | bash
-
-  # Custom workspace and agent name
-  curl -fsSL ... | bash -s -- --workspace ~/projects --agent assistant
-
-  # Local install
-  ./install.sh --workspace ~/my-workspace --agent bot
-EOF
+    echo "OpenClaw Multi-Agent Kit Installer"
+    echo ""
+    echo "Usage: install.sh [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  -w, --workspace DIR    Workspace directory (default: ~/workspaces)"  
+    echo "  -a, --agent NAME       First agent name (default: main)"
+    echo "  -h, --help             Show this help"
+    echo ""
+    echo "Examples:"
+    echo '  curl -fsSL .../install.sh | bash'
+    echo '  curl -fsSL .../install.sh | bash -s -- --agent bot --workspace ~/agents'
 }
 
-# Detect or prompt for workspace directory
+# Get workspace directory
 get_workspace_dir() {
     if [ -z "$WORKSPACE_DIR" ]; then
-        if $DRY_RUN; then
-            WORKSPACE_DIR="$HOME/workspaces"
-            log_dry "Would use default workspace: $WORKSPACE_DIR"
-        else
-            read -p "Workspace directory [$HOME/workspaces]: " WORKSPACE_DIR
-            WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/workspaces}"
-        fi
+        log_step "Workspace Setup"
+        local input
+        input=$(read_tty "Enter workspace directory [~/workspaces]: " "~/workspaces")
+        WORKSPACE_DIR="${input/#\~/$HOME}"
     fi
     
     # Expand tilde
     WORKSPACE_DIR="${WORKSPACE_DIR/#\~/$HOME}"
     
-    # Check if exists and has content
-    if [ -d "$WORKSPACE_DIR" ] && [ "$(ls -A "$WORKSPACE_DIR" 2>/dev/null)" ]; then
-        log_warn "Directory $WORKSPACE_DIR already exists and is not empty"
-        if ! $DRY_RUN; then
-            read -p "Continue anyway? [y/N] " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                log_info "Aborted"
-                exit 0
-            fi
-        fi
+    log_info "Using workspace: $WORKSPACE_DIR"
+}
+
+# Get agent name
+get_agent_name() {
+    if [ -z "$AGENT_NAME" ]; then
+        log_step "Agent Configuration"
+        local input
+        input=$(read_tty "What should we call your first agent? [main]: " "main")
+        AGENT_NAME="$input"
     fi
+    
+    log_info "Agent name: $AGENT_NAME"
+}
+
+# Ask about Telegram (handled by bootstrap script)
+# Bootstrap has its own prompt_telegram function that asks interactively
+ask_telegram() {
+    # Bootstrap will handle Telegram setup at the end
+    : 
 }
 
 # Check prerequisites
 check_prereqs() {
-    log_info "Checking prerequisites..."
-    
-    if $DRY_RUN; then
-        log_dry "Would check: git is installed"
-        log_dry "Would check: openclaw is installed"
-        log_dry "Would check: ~/.openclaw/ exists"
-        return 0
-    fi
+    log_step "Prerequisites"
     
     if ! command -v git &> /dev/null; then
         log_error "Git is required but not installed"
@@ -127,37 +164,26 @@ check_prereqs() {
     fi
     
     if ! command -v openclaw &> /dev/null; then
-        log_error "OpenClaw is required but not installed"
-        log_info "Install OpenClaw first: https://docs.openclaw.ai"
+        log_error "OpenClaw not found. Install first: npm install -g openclaw"
         exit 1
     fi
     
     if [ ! -d "$HOME/.openclaw" ]; then
-        log_error "OpenClaw config not found at ~/.openclaw"
-        log_info "Run OpenClaw at least once to initialize"
+        log_error "OpenClaw not initialized. Run 'openclaw' first."
         exit 1
     fi
     
-    log_success "Prerequisites OK"
+    log_success "All prerequisites met"
 }
 
-# Clone/setup the kit
+# Setup the kit
 setup_kit() {
-    log_info "Setting up multiagent kit..."
-    
-    # Create workspace if needed
-    if $DRY_RUN; then
-        log_dry "Would create: $WORKSPACE_DIR"
-        log_dry "Would init git repo in: $WORKSPACE_DIR"
-        log_dry "Would add kit submodule: $KIT_REPO -> kit/"
-        log_dry "Would checkout latest stable tag in kit/"
-        return 0
-    fi
+    log_step "Installing Multi-Agent Kit"
     
     mkdir -p "$WORKSPACE_DIR"
     cd "$WORKSPACE_DIR"
     
-    # Init git if needed
+    # Init git if needed  
     if [ ! -d ".git" ]; then
         git init
         log_success "Initialized git repository"
@@ -165,19 +191,17 @@ setup_kit() {
     
     # Add kit as submodule
     if [ ! -d "kit" ]; then
-        log_info "Cloning kit repository..."
-        git submodule add "$KIT_REPO" kit
-        log_success "Added kit submodule"
+        log_info "Cloning kit..."
+        git submodule add -q "$KIT_REPO" kit
+        log_success "Added kit"
     fi
     
     # Checkout latest stable tag
     cd kit
     LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
     if [ -n "$LATEST_TAG" ]; then
-        git checkout "$LATEST_TAG"
-        log_success "Checked out kit version: $LATEST_TAG"
-    else
-        log_warn "No tags found, using main branch"
+        git checkout "$LATEST_TAG" 2>/dev/null
+        log_success "Kit version: $LATEST_TAG"
     fi
     cd ..
     
@@ -187,21 +211,10 @@ setup_kit() {
 
 # Run bootstrap
 run_bootstrap() {
-    log_info "Running bootstrap..."
-    
-    if $DRY_RUN; then
-        log_dry "Would run: ./kit/skills/multiagent-bootstrap/scripts/setup.sh"
-        log_dry "  With WORKSPACE_DIR=$WORKSPACE_DIR"
-        log_dry "  With AGENT_NAME=${AGENT_NAME:-main}"
-        return 0
-    fi
+    log_step "Creating Agent"
     
     if [ -f "$WORKSPACE_DIR/kit/skills/multiagent-bootstrap/scripts/setup.sh" ]; then
-        if [ -n "$AGENT_NAME" ]; then
-            "$WORKSPACE_DIR/kit/skills/multiagent-bootstrap/scripts/setup.sh" "$AGENT_NAME"
-        else
-            "$WORKSPACE_DIR/kit/skills/multiagent-bootstrap/scripts/setup.sh"
-        fi
+        "$WORKSPACE_DIR/kit/skills/multiagent-bootstrap/scripts/setup.sh" "$AGENT_NAME"
     else
         log_error "Bootstrap script not found"
         exit 1
@@ -210,31 +223,35 @@ run_bootstrap() {
 
 # Main
 main() {
-    echo
-    if $DRY_RUN; then
-        echo "╔════════════════════════════════════════════════════════╗"
-        echo "║  OpenClaw Multi-Agent Kit Install (DRY RUN)            ║"
-        echo "╚════════════════════════════════════════════════════════╝"
-    else
-        echo "╔════════════════════════════════════════════════════════╗"
-        echo "║  OpenClaw Multi-Agent Kit Install                      ║"
-        echo "╚════════════════════════════════════════════════════════╝"
-    fi
+    echo ""
+    echo "╔════════════════════════════════════════════════════════╗"
+    echo "║  OpenClaw Multi-Agent Kit Install                     ║"
+    echo "╚════════════════════════════════════════════════════════╝"
     echo
     
     parse_args "$@"
-    get_workspace_dir
     check_prereqs
+    get_workspace_dir
+    get_agent_name
+    ask_telegram
+    
+    # Confirm everything
+    log_step "Ready to Install"
+    log_info "Workspace: $WORKSPACE_DIR"
+    log_info "Agent: $AGENT_NAME"
+    
+    if ! confirm "Continue?" "y"; then
+        log_info "Aborted"
+        exit 0
+    fi
+    
     setup_kit
     run_bootstrap
     
     echo
-    if $DRY_RUN; then
-        log_info "Dry run complete! To install for real, run without --dry-run"
-    else
-        log_success "Installation complete!"
-    fi
-    echo
+    log_success "Installation complete!"
+    log_info "Agent workspace: $WORKSPACE_DIR/$AGENT_NAME"
+    log_info "Restart OpenClaw: openclaw gateway restart"
 }
 
 main "$@"
