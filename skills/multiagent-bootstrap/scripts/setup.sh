@@ -31,6 +31,18 @@ check_prereqs() {
         exit 1
     fi
     
+    if [ ! -d "$HOME/.openclaw" ]; then
+        log_error "OpenClaw config directory not found at ~/.openclaw"
+        log_info "Please ensure OpenClaw is properly installed."
+        exit 1
+    fi
+    
+    if [ ! -f "$HOME/.openclaw/openclaw.json" ]; then
+        log_error "OpenClaw config file not found at ~/.openclaw/openclaw.json"
+        log_info "Run OpenClaw at least once to initialize the config."
+        exit 1
+    fi
+    
     if [ ! -d "$KIT_DIR" ]; then
         log_error "Kit directory not found at $KIT_DIR"
         log_info "Did you add the submodule? Run:"
