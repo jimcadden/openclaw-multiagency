@@ -27,7 +27,7 @@ echo "Checking kit..."
 if [ -d "$KIT_DIR" ]; then
     check_pass "Kit directory exists"
     
-    if [ -d "$KIT_DIR/.git" ]; then
+    if [ -d "$KIT_DIR/.git" ] || [ -f "$KIT_DIR/.git" ]; then
         check_pass "Kit is a git repo"
         
         cd "$KIT_DIR"
