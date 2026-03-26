@@ -37,14 +37,53 @@ WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/workspaces}"
 KIT_DIR="${KIT_DIR:-$WORKSPACE_DIR/kit}"
 
 log_info() { echo -e "${BLUE}ℹ${NC} $1"; }
+log_tip() { echo -e "${CYAN}💡${NC} $1"; }
 log_success() { echo -e "${GREEN}✓${NC} $1"; }
 log_warn() { echo -e "${YELLOW}⚠${NC} $1"; }
 log_error() { echo -e "${RED}✗${NC} $1"; }
 log_dry() { echo -e "${CYAN}[DRY RUN]${NC} $1"; }
 
+# Check for existing agents (migration scenario)
+check_existing_agents() {
+    # Look for common agent workspace patterns
+    local existing_agents=()
+    
+    for dir in "$WORKSPACE_DIR"/*/; do
+        if [ -d "$dir" ] && [ -f "$dir/IDENTITY.md" ] && [ -f "$dir/SOUL.md" ]; then
+            existing_agents+=("$(basename "$dir")")
+        fi
+    done
+    
+    if [ ${#existing_agents[@]} -gt 0 ]; then
+        echo
+        log_warn "Existing agent workspaces detected!"
+        echo
+        echo "  Found: ${existing_agents[*]}"
+        echo
+        log_info "Bootstrap is for fresh installs only."
+        log_tip "For migrating existing agents to the multiagent kit:"
+        echo
+        echo "  1. Add the kit as a submodule:"
+        echo "     cd $WORKSPACE_DIR"
+        echo "     git submodule add https://github.com/jimcadden/openclaw-multiagent.git kit"
+        echo
+        echo "  2. Run the migration script:"
+        echo "     ./kit/skills/multiagent-bootstrap/scripts/migrate.sh"
+        echo
+        echo "  Or see: kit/skills/multiagent-bootstrap/SKILL.md#migrating-existing-agents"
+        echo
+        exit 1
+    fi
+}
+
 # Check prerequisites
 check_prereqs() {
     log_info "Checking prerequisites..."
+    
+    # Check for existing agents first
+    if ! $DRY_RUN; then
+        check_existing_agents
+    fi
     
     if $DRY_RUN; then
         log_dry "Would check: openclaw CLI exists"
@@ -52,6 +91,7 @@ check_prereqs() {
         log_dry "Would check: ~/.openclaw/openclaw.json exists"
         log_dry "Would check: $KIT_DIR exists"
         log_dry "Would check: $WORKSPACE_DIR/.git exists (prompt to init if not)"
+        log_dry "Would check: No existing agent workspaces (migration check)"
         return 0
     fi
     

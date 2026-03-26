@@ -8,9 +8,32 @@ A collection of skills and templates for running multiple OpenClaw agents with s
 
 ## When to Use This
 
-**Bootstrap is for fresh OpenClaw installs.** Run it once after installing OpenClaw and before creating any agents.
+| Scenario | What to Run |
+|----------|-------------|
+| **Fresh OpenClaw install** (no agents yet) | `./kit/skills/multiagent-bootstrap/scripts/setup.sh` |
+| **Already have agents** | `./kit/skills/multiagent-bootstrap/scripts/migrate.sh` |
 
-**Already have OpenClaw set up?** Skip bootstrap — just add this repo as a submodule to your existing workspace and repoint your skill symlinks.
+### Fresh Install
+
+Run bootstrap once after installing OpenClaw and before creating any agents.
+
+### Migrating Existing Agents
+
+Already have agents with IDENTITY.md, MEMORY.md, etc.? Use the migration script:
+
+```bash
+cd ~/workspaces
+git submodule add https://github.com/jimcadden/openclaw-multiagent.git kit
+./kit/skills/multiagent-bootstrap/scripts/migrate.sh
+```
+
+The migration script:
+- Adds the kit as a submodule
+- Updates all skill symlinks to point to `kit/skills/`
+- Preserves your existing agent data
+- Commits the changes
+
+See `skills/multiagent-bootstrap/SKILL.md` for manual migration steps.
 
 ## Quick Start (New Install)
 

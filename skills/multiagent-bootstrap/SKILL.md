@@ -72,7 +72,55 @@ See what the bootstrap would do without making any changes:
     └── multiagent-telegram-setup -> ../shared/skills/multiagent-telegram-setup
 ```
 
-## Post-Bootstrap
+## Migrating Existing Agents
+
+**Bootstrap is for fresh installs only.** If you already have agents with IDENTITY.md, MEMORY.md, etc., use the migration script instead.
+
+### Quick Migration
+
+```bash
+cd ~/workspaces
+git submodule add https://github.com/jimcadden/openclaw-multiagent.git kit
+./kit/skills/multiagent-bootstrap/scripts/migrate.sh
+```
+
+### What Migration Does
+
+- Adds the kit as a submodule (if not already present)
+- Updates agent skill symlinks to point to `kit/skills/`
+- Updates `shared/skills/` symlinks
+- Preserves all your existing agent data (IDENTITY.md, MEMORY.md, etc.)
+
+### Manual Migration
+
+If you prefer to do it manually:
+
+```bash
+cd ~/workspaces
+
+# 1. Add the kit as a submodule
+git submodule add https://github.com/jimcadden/openclaw-multiagent.git kit
+
+# 2. Update agent skill symlinks (repeat for each agent)
+cd main
+rm -f agent-state-manager telegram-agent-setup
+ln -s ../kit/skills/multiagent-state-manager multiagent-state-manager
+ln -s ../kit/skills/multiagent-telegram-setup multiagent-telegram-setup
+cd ..
+
+# 3. Update shared skill symlinks
+cd shared/skills
+rm -f agent-state-manager telegram-agent-setup
+ln -s ../../kit/skills/multiagent-state-manager multiagent-state-manager
+ln -s ../../kit/skills/multiagent-telegram-setup multiagent-telegram-setup
+cd ../..
+
+# 4. Commit the changes
+git add -A
+git commit -m "[main] Migrate to openclaw-multiagent kit"
+```
+
+## Post-Bootstrap / Post-Migration
 
 1. Restart OpenClaw: `openclaw gateway restart`
 2. Verify agent loads: `openclaw status`
