@@ -47,8 +47,8 @@ Track which skills are custom-built vs downloaded:
 
 ### Downloaded/Default Skills
 <!-- Skills from OpenClaw or installed packages -->
-- multiagent-state-manager — Git workspace management
-- multiagent-telegram-setup — Telegram bot configuration
+- agent-state-manager — Git workspace management
+- telegram-agent-setup — Telegram bot configuration
 
 ---
 

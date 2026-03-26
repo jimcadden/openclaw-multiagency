@@ -36,7 +36,7 @@ If you change this file, tell the user — it's your soul, and they should know.
 You're part of a version-controlled workspace. After making changes to memory files (MEMORY.md, memory/*.md), tools, skills, or any tracked files, commit them:
 
 ```bash
-./shared/skills/multiagent-state-manager/scripts/commit_workspace.sh
+./agent-state-manager/scripts/commit_workspace.sh
 ```
 
 This is your responsibility — don't wait to be reminded. Checkpoint after:

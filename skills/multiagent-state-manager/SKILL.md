@@ -1,9 +1,9 @@
 ---
 name: multiagent-state-manager
-description: Manage agent workspace state with git. Use to commit memory and workspace changes, checkpoint session progress, check git status, or push to GitHub. Trigger on commit requests, checkpoint, save state, push to github, what changed, end-of-session wrap-up, or after memory files are updated.
+description: Manage agent workspace state with git. Part of openclaw-multiagent kit. Use to commit memory and workspace changes, checkpoint session progress, check git status, or push to GitHub. Trigger on commit requests, checkpoint, save state, push to github, what changed, end-of-session wrap-up, or after memory files are updated.
 ---
 
-# Multiagent State Manager
+# Agent State Manager
 
 Checkpoint your agent workspace state using git. Track changes to memory files, skills, and configuration with commit history.
 

@@ -1,9 +1,9 @@
 ---
 name: multiagent-telegram-setup
-description: Set up a new OpenClaw agent with Telegram channel routing. Use when creating a new agent identity that should receive Telegram messages, adding a new Telegram bot to route to an existing agent, configuring multi-agent setups where different Telegram bots route to different agents, or setting up specialized bots like research bot or assistant bot with dedicated workspaces and configurations.
+description: Set up a new OpenClaw agent with Telegram channel routing. Part of openclaw-multiagent kit. Use when creating a new agent identity that should receive Telegram messages, adding a new Telegram bot to route to an existing agent, configuring multi-agent setups where different Telegram bots route to different agents, or setting up specialized bots like research bot or assistant bot with dedicated workspaces and configurations.
 ---
 
-# Multiagent Telegram Setup
+# Telegram Agent Setup
 
 ## Overview
 
@@ -24,7 +24,7 @@ All new agents are created in `~/agent-workspace/` with shared skills and a stan
     ├── SOUL.md
     ├── TOOLS.md            # Customize this
     ├── USER.md             # Customize this
-    └── agent-state-manager -> ../shared/skills/agent-state-manager
+    └── multiagent-state-manager -> ../shared/skills/multiagent-state-manager
 ```
 
 ## Quick Start
@@ -32,7 +32,7 @@ All new agents are created in `~/agent-workspace/` with shared skills and a stan
 Run the interactive setup:
 
 ```bash
-python3 ~/agent-workspace/shared/skills/telegram-agent-setup/scripts/setup-telegram-agent.py
+python3 ~/agent-workspace/kit/skills/multiagent-telegram-setup/scripts/setup-telegram-agent.py
 ```
 
 This will:
