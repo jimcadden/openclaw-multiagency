@@ -87,7 +87,8 @@ setup_agent_symlinks() {
     log_info "Setting up agent: $agent_name"
     
     if $DRY_RUN; then
-        log_dry "Would create/replace symlinks in $agent_dir:"
+        log_dry "Would clean up old symlinks in $agent_dir (if exist)"
+        log_dry "Would create/replace symlinks:"
         log_dry "  - multiagent-state-manager -> ../kit/skills/multiagent-state-manager"
         log_dry "  - multiagent-telegram-setup -> ../kit/skills/multiagent-telegram-setup"
         return 0
@@ -95,7 +96,18 @@ setup_agent_symlinks() {
     
     cd "$agent_dir"
     
-    # Remove any existing symlinks (clean slate)
+    # Clean up old symlinks (from early dev versions)
+    if [ -L "agent-state-manager" ]; then
+        rm -f agent-state-manager
+        log_success "Removed old symlink: agent-state-manager"
+    fi
+    
+    if [ -L "telegram-agent-setup" ]; then
+        rm -f telegram-agent-setup
+        log_success "Removed old symlink: telegram-agent-setup"
+    fi
+    
+    # Remove any existing new symlinks (clean slate)
     if [ -L "multiagent-state-manager" ]; then
         rm -f multiagent-state-manager
     fi
@@ -117,6 +129,7 @@ setup_shared_skills() {
     
     if $DRY_RUN; then
         log_dry "Would create: $WORKSPACE_DIR/shared/skills/"
+        log_dry "Would clean up old symlinks (if exist)"
         log_dry "Would create symlinks:"
         log_dry "  - multiagent-state-manager -> ../../kit/skills/multiagent-state-manager"
         log_dry "  - multiagent-telegram-setup -> ../../kit/skills/multiagent-telegram-setup"
@@ -126,7 +139,18 @@ setup_shared_skills() {
     mkdir -p "$WORKSPACE_DIR/shared/skills"
     cd "$WORKSPACE_DIR/shared/skills"
     
-    # Remove any existing symlinks (clean slate)
+    # Clean up old symlinks (from early dev versions)
+    if [ -L "agent-state-manager" ]; then
+        rm -f agent-state-manager
+        log_success "Removed old symlink: agent-state-manager"
+    fi
+    
+    if [ -L "telegram-agent-setup" ]; then
+        rm -f telegram-agent-setup
+        log_success "Removed old symlink: telegram-agent-setup"
+    fi
+    
+    # Remove any existing new symlinks (clean slate)
     if [ -L "multiagent-state-manager" ]; then
         rm -f multiagent-state-manager
     fi
