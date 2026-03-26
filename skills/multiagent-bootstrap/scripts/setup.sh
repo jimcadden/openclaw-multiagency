@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Paths
-WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/agent-workspace}"
+WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/workspaces}"
 KIT_DIR="${KIT_DIR:-$WORKSPACE_DIR/kit}"
 AGENT_NAME="${1:-}"
 

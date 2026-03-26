@@ -11,7 +11,7 @@ This skill provides the complete workflow for creating a new OpenClaw agent in a
 
 ## Default: Multi-Agent Workspace
 
-All new agents are created in `~/agent-workspace/` with shared skills and a standard template.
+All new agents are created in `~/workspaces/` with shared skills and a standard template.
 
 ```
 ~/agent-workspace/
@@ -153,7 +153,7 @@ The workspace holds the agent's files (IDENTITY.md, MEMORY.md, SOUL.md, etc.).
 Commit the new workspace to version control:
 
 ```bash
-cd ~/agent-workspace
+cd ~/workspaces
 git add your-agent-name/
 git commit -m "[main] Add your-agent-name agent workspace"
 git push origin main
@@ -285,3 +285,4 @@ Each bot routes to a different agent:
 - **allowFrom** restricts who can message your bot — use it
 - **groupPolicy: allowlist** prevents bot from joining random groups
 - Don't commit `openclaw.json` with real tokens to version control
+rol

@@ -38,7 +38,7 @@ openclaw gateway restart
 After bootstrap, adding agents is manual (for now):
 
 ```bash
-cd ~/agent-workspace
+cd ~/workspaces
 cp -r kit/workspace-template my-new-agent
 # Edit my-new-agent/IDENTITY.md, USER.md, etc.
 # Add to openclaw.json
@@ -58,7 +58,7 @@ git commit -m "[main] Update multiagent kit"
 ## Structure
 
 ```
-~/agent-workspace/
+~/workspaces/
 ├── kit/                           # this submodule
 │   └── skills/
 │       ├── multiagent-bootstrap/

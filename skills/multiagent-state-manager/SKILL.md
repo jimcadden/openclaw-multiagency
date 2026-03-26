@@ -137,7 +137,7 @@ cd ../research
 ### Directory Structure
 
 ```
-~/agent-workspace/
+~/workspaces/
 ├── main/                   # main agent workspace
 ├── research/               # research agent workspace
 ├── shared/                  # shared resources (main writes, others read)

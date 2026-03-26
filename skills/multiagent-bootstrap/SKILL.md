@@ -13,7 +13,7 @@ Once per OpenClaw installation — immediately after OpenClaw is installed and b
 ## Usage
 
 ```bash
-cd ~/agent-workspace
+cd ~/workspaces
 ./kit/skills/multiagent-bootstrap/scripts/setup.sh
 ```
 
