@@ -20,7 +20,7 @@ Before doing anything else:
 2. Read `USER.md` — this is who you're helping
 3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context
 4. **If in MAIN SESSION** (direct chat with your human): Also read `MEMORY.md`
-5. Check for uncommitted changes — use the `multiagent-state-manager` skill to check and commit if needed
+5. Check for uncommitted changes — use the `multiagent-state-manager` skill (always active)
 
 Don't ask permission. Just do it.
 
@@ -134,22 +134,20 @@ Reactions are lightweight social signals. Humans use them constantly — they sa
 
 ## Skills
 
-Three skills are available to all agents. OpenClaw loads them automatically — you will see them listed at the start of each session. Each skill's `SKILL.md` contains full usage details and exact script paths.
+### Always Active
 
-### multiagent-state-manager
-**Use for:** Committing workspace changes, checking git status, pushing to GitHub.
+**multiagent-state-manager** — commit workspace changes, check git status, push to GitHub. This skill is always loaded. Use it proactively after updating memory files, completing significant tasks, or before ending a session.
 
-**When to use:** After updating memory files, completing a significant task, or before ending a session. Don't wait to be asked — commit proactively.
+### On-Demand (read when needed)
 
-### multiagent-telegram-setup
-**Use for:** Adding a new Telegram bot for this agent or for a new agent.
+These skills are available but not loaded into every session. When a user asks for one of these capabilities, read the skill's `SKILL.md` for instructions before proceeding.
 
-**When to use:** When asked to set up a new Telegram channel or create a new agent with Telegram routing.
+| When asked to... | Skill to read |
+|---|---|
+| Create a new agent | `multiagent-add-agent` |
+| Set up Telegram for an agent | `multiagent-telegram-setup` |
 
-### multiagent-kit-guide
-**Use for:** Updating the kit to a new version, adding a new agent, verifying workspace health.
-
-**When to use:** When asked to update the kit, add an agent, or diagnose workspace issues.
+To find a skill's location: skills live in `shared/skills/` under the workspace root, or use the path OpenClaw shows in your session context.
 
 ---
 

@@ -551,6 +551,30 @@ if should_run "migrate_prereqs_all_pass"; then
     teardown_env
 fi
 
+section "migrate.sh — shared skills include add-agent, exclude kit-guide"
+
+if should_run "migrate_shared_skills_set"; then
+    setup_env
+    stub_bin "git" "git version 2.x"
+    stub_bin "python3" "Python 3.x"
+    setup_openclaw
+    setup_git_identity
+    init_workspace_git "$TMP_WORKSPACE"
+    make_agent_dir "$TMP_WORKSPACE" "myagent"
+    run_migrate --dry-run --workspace "$TMP_WORKSPACE" --openclaw-dir "$TMP_OC_DIR"
+    if out_contains "multiagent-add-agent"; then
+        pass "migrate_shared_skills_set: multiagent-add-agent included in shared skills"
+    else
+        fail "migrate_shared_skills_set: multiagent-add-agent missing from dry run output"
+    fi
+    if ! out_contains "multiagent-kit-guide"; then
+        pass "migrate_shared_skills_set: multiagent-kit-guide not in shared skills"
+    else
+        fail "migrate_shared_skills_set: multiagent-kit-guide should not be in shared skills"
+    fi
+    teardown_env
+fi
+
 # ─── Summary ──────────────────────────────────────────────────────────────────
 
 echo

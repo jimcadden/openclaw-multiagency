@@ -110,14 +110,14 @@ After the initial setup, you can add more agents:
 
 **Quick way (recommended):**
 ```bash
-cd ~/workspaces
-./kit/scripts/add-agent.sh my-new-agent
-# Script handles: workspace, identity customization, Telegram prompt, git commit
+cd <workspace>
+./kit/skills/multiagent-add-agent/scripts/add-agent.sh my-new-agent
+# Handles: workspace creation, identity customization, Telegram prompt, git commit
 ```
 
 **Manual way:**
 ```bash
-cd ~/workspaces
+cd <workspace>
 cp -r kit/workspace-template my-new-agent
 # Edit my-new-agent/IDENTITY.md, USER.md
 # Add agent to ~/.openclaw/openclaw.json

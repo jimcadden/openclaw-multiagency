@@ -54,10 +54,10 @@ git commit -m "[main] Reset kit to <version-tag>"
 
 ```bash
 cd <workspace>
-./kit/scripts/add-agent.sh my-new-agent
+./kit/skills/multiagent-add-agent/scripts/add-agent.sh my-new-agent
 ```
 
-This handles template copy, skill symlinks, config update, and git commit.
+This handles template copy, config update, optional Telegram setup, and git commit.
 
 ### Option 2: Copy Template (Manual)
 

@@ -49,7 +49,7 @@ fi
 # Check shared skills
 echo
 echo "Checking shared skills..."
-for skill in multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
+for skill in multiagent-state-manager multiagent-telegram-setup multiagent-add-agent; do
     if [ -L "$WORKSPACE_DIR/shared/skills/$skill" ]; then
         check_pass "$skill symlink exists"
     else

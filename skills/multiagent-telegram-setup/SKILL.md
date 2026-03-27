@@ -1,6 +1,8 @@
 ---
 name: multiagent-telegram-setup
-description: Set up a new OpenClaw agent with Telegram channel routing. Part of openclaw-multiagent kit. Use when creating a new agent identity that should receive Telegram messages, adding a new Telegram bot to route to an existing agent, configuring multi-agent setups where different Telegram bots route to different agents, or setting up specialized bots like research bot or assistant bot with dedicated workspaces and configurations.
+description: Configure Telegram channel routing for an OpenClaw agent. Use when asked to set up Telegram for an agent, add a Telegram bot, or route a Telegram bot to an existing agent.
+disable-model-invocation: true
+user-invocable: true
 ---
 
 # Telegram Agent Setup

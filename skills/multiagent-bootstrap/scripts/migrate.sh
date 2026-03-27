@@ -422,7 +422,7 @@ setup_shared_skills() {
 
     if $DRY_RUN; then
         log_dry "Would create: $WORKSPACE_DIR/shared/skills/"
-        for skill in multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
+        for skill in multiagent-state-manager multiagent-telegram-setup multiagent-add-agent; do
             log_dry "Would symlink: shared/skills/$skill -> ../../kit/skills/$skill"
         done
         return 0
@@ -432,12 +432,12 @@ setup_shared_skills() {
     cd "$WORKSPACE_DIR/shared/skills"
 
     # Remove old-name symlinks from early dev versions
-    for old in agent-state-manager telegram-agent-setup; do
+    for old in agent-state-manager telegram-agent-setup multiagent-kit-guide; do
         [ -L "$old" ] && rm -f "$old" && log_success "Removed legacy symlink: $old"
     done
 
     # Remove and recreate to ensure correct target
-    for skill in multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
+    for skill in multiagent-state-manager multiagent-telegram-setup multiagent-add-agent; do
         [ -L "$skill" ] && rm -f "$skill"
         ln -s "../../kit/skills/$skill" "$skill"
         log_success "Linked shared/skills/$skill"
@@ -464,7 +464,8 @@ setup_agent_symlinks() {
     # Remove all legacy per-agent skill symlinks (old names and current names)
     # Skills are now discovered via skills.load.extraDirs in openclaw.json
     for link in agent-state-manager telegram-agent-setup \
-                multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
+                multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide \
+                multiagent-add-agent; do
         if [ -L "$link" ]; then
             rm -f "$link"
             log_success "  Removed legacy symlink: $link"
