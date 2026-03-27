@@ -111,9 +111,23 @@ resolve_paths() {
     OPENCLAW_DIR="${OPENCLAW_DIR:-$HOME/.openclaw}"
     OPENCLAW_DIR="${OPENCLAW_DIR/#\~/$HOME}"
 
-    WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/.openclaw/workspace}"
-    WORKSPACE_DIR="${WORKSPACE_DIR/#\~/$HOME}"
+    # If workspace not set by flag/env, try to infer from script location first.
+    # migrate.sh lives at: <workspace>/kit/skills/multiagent-bootstrap/scripts/migrate.sh
+    # Five parent dirs up = workspace.
+    if [ -z "$WORKSPACE_DIR" ]; then
+        local script_dir
+        script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        local auto_workspace
+        auto_workspace="$(dirname "$(dirname "$(dirname "$(dirname "$script_dir")")")")"
+        # Validate: parent of auto-detected path should contain a kit/ subdir
+        if [ -d "$auto_workspace/kit" ]; then
+            WORKSPACE_DIR="$auto_workspace"
+        else
+            WORKSPACE_DIR="$HOME/.openclaw/workspace"
+        fi
+    fi
 
+    WORKSPACE_DIR="${WORKSPACE_DIR/#\~/$HOME}"
     KIT_DIR="$WORKSPACE_DIR/kit"
 }
 
@@ -166,13 +180,55 @@ check_prereqs() {
     fi
 
     if [ ! -d "$WORKSPACE_DIR/.git" ]; then
-        log_error "No git repository found in $WORKSPACE_DIR"
-        log_info "Initialize one first: cd $WORKSPACE_DIR && git init"
-        exit 1
+        log_warn "No git repository found in $WORKSPACE_DIR"
+
+        local reply=""
+        if [ -t 0 ]; then
+            read -p "Initialize git repository here? [Y/n] " -n 1 -r reply
+            echo
+        elif [ -r /dev/tty ]; then
+            printf "Initialize git repository here? [Y/n] " >&2
+            read -r reply < /dev/tty
+        fi
+
+        if [[ -z "$reply" || "$reply" =~ ^[Yy]$ ]]; then
+            git -C "$WORKSPACE_DIR" init
+            log_success "Git repository initialized"
+        else
+            log_error "Git repository is required. Initialize manually:"
+            log_info "  cd $WORKSPACE_DIR && git init"
+            exit 1
+        fi
+    else
+        log_success "Git repository found: $WORKSPACE_DIR"
     fi
-    log_success "Git repository found: $WORKSPACE_DIR"
 
     log_success "All prerequisites met"
+}
+
+# ─── Layout detection ─────────────────────────────────────────────────────────
+
+# Returns "flat" if agent files are at workspace root, "multiagent" if in subdirs,
+# or "none" if no agents found.
+detect_layout() {
+    # Check flat: workspace root itself is the agent
+    if [ -f "$WORKSPACE_DIR/IDENTITY.md" ] && [ -f "$WORKSPACE_DIR/SOUL.md" ]; then
+        echo "flat"
+        return
+    fi
+
+    # Check multiagent: agent subdirs present
+    for dir in "$WORKSPACE_DIR"/*/; do
+        local name
+        name="$(basename "$dir")"
+        [ "$name" = "kit" ] || [ "$name" = "shared" ] && continue
+        if [ -d "$dir" ] && [ -f "${dir}IDENTITY.md" ] && [ -f "${dir}SOUL.md" ]; then
+            echo "multiagent"
+            return
+        fi
+    done
+
+    echo "none"
 }
 
 # ─── Find existing agents ─────────────────────────────────────────────────────
@@ -180,17 +236,144 @@ check_prereqs() {
 find_agents() {
     local agents=()
     for dir in "$WORKSPACE_DIR"/*/; do
-        # Skip the kit and shared directories
         local name
         name="$(basename "$dir")"
-        if [ "$name" = "kit" ] || [ "$name" = "shared" ]; then
-            continue
-        fi
+        [ "$name" = "kit" ] || [ "$name" = "shared" ] && continue
         if [ -d "$dir" ] && [ -f "${dir}IDENTITY.md" ] && [ -f "${dir}SOUL.md" ]; then
             agents+=("$name")
         fi
     done
     echo "${agents[@]:-}"
+}
+
+# ─── Flat workspace restructure ───────────────────────────────────────────────
+
+restructure_flat_workspace() {
+    log_step "Restructuring Flat Workspace"
+    log_info "Detected single-agent layout: agent files are at workspace root."
+    log_info "Migration requires a multiagent layout: agent files in a named subdirectory."
+    echo
+
+    # Prompt for agent name (use default in dry-run)
+    local agent_name=""
+    if $DRY_RUN; then
+        agent_name="main"
+    elif [ -t 0 ]; then
+        read -p "Agent directory name [main]: " agent_name
+    elif [ -r /dev/tty ]; then
+        printf "Agent directory name [main]: " >&2
+        read -r agent_name < /dev/tty
+    fi
+    agent_name="${agent_name:-main}"
+
+    if [[ ! "$agent_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        log_error "Agent name must be alphanumeric (hyphens/underscores OK)"
+        exit 1
+    fi
+
+    local target_dir="$WORKSPACE_DIR/$agent_name"
+    if [ -d "$target_dir" ]; then
+        log_error "Directory '$target_dir' already exists — cannot restructure"
+        exit 1
+    fi
+
+    # Show what will move
+    log_info "Files to move into $target_dir/:"
+    local files_to_move=()
+    for item in "$WORKSPACE_DIR"/*; do
+        local base
+        base="$(basename "$item")"
+        case "$base" in
+            kit|shared|.git|.gitmodules|.gitignore|.gitattributes) continue ;;
+        esac
+        echo "    $base"
+        files_to_move+=("$base")
+    done
+    echo
+
+    if $DRY_RUN; then
+        log_dry "Would create: $target_dir"
+        for f in "${files_to_move[@]}"; do
+            log_dry "Would move:   $f -> $agent_name/$f"
+        done
+        # Set so rest of dry-run uses the new agent name
+        RESTRUCTURED_AGENT="$agent_name"
+        return 0
+    fi
+
+    local reply=""
+    if [ -t 0 ]; then
+        read -p "Proceed with restructuring? [Y/n] " -n 1 -r reply
+        echo
+    elif [ -r /dev/tty ]; then
+        printf "Proceed with restructuring? [Y/n] " >&2
+        read -r reply < /dev/tty
+    fi
+
+    if [[ -n "$reply" && ! "$reply" =~ ^[Yy]$ ]]; then
+        log_info "Aborted"
+        exit 0
+    fi
+
+    mkdir -p "$target_dir"
+
+    # Use git mv to preserve history if possible, fall back to mv
+    local use_git_mv=false
+    if [ -d "$WORKSPACE_DIR/.git" ]; then
+        use_git_mv=true
+    fi
+
+    cd "$WORKSPACE_DIR"
+    for f in "${files_to_move[@]}"; do
+        if $use_git_mv && git ls-files --error-unmatch "$f" &>/dev/null 2>&1; then
+            git mv "$f" "$agent_name/"
+        else
+            mv "$f" "$target_dir/"
+        fi
+        log_success "Moved: $f -> $agent_name/$f"
+    done
+
+    RESTRUCTURED_AGENT="$agent_name"
+    log_success "Workspace restructured — agent is now at $target_dir"
+}
+
+# ─── Update agent in openclaw.json ────────────────────────────────────────────
+
+register_agent_in_config() {
+    local agent_name="$1"
+    local agent_workspace="$WORKSPACE_DIR/$agent_name"
+    local config_file="$OPENCLAW_DIR/openclaw.json"
+
+    [ -f "$config_file" ] || return 0
+
+    python3 << EOF
+import json, sys
+
+config_file = "$config_file"
+agent_id = "$agent_name"
+workspace = "$agent_workspace"
+
+try:
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+
+    if 'agents' not in config:
+        config['agents'] = {}
+    if 'list' not in config['agents']:
+        config['agents']['list'] = []
+
+    existing = [a for a in config['agents']['list'] if a.get('id') == agent_id]
+    if not existing:
+        config['agents']['list'].append({'id': agent_id, 'workspace': workspace})
+        print(f"Registered agent '{agent_id}' in openclaw.json (workspace: {workspace})")
+    else:
+        print(f"Agent '{agent_id}' already in openclaw.json")
+
+    with open(config_file, 'w') as f:
+        json.dump(config, f, indent=2)
+except Exception as e:
+    print(f"Warning: could not update openclaw.json: {e}", file=sys.stderr)
+EOF
 }
 
 # ─── Kit setup ────────────────────────────────────────────────────────────────
@@ -389,7 +572,7 @@ git_commit() {
 
 - Added kit submodule (openclaw-multiagent)
 - Created shared/skills/ symlinks
-- Added skill symlinks to all agents"
+- Registered skills via skills.load.extraDirs in openclaw.json"
             log_success "Changes committed"
         fi
     else
@@ -419,20 +602,33 @@ main() {
 
     check_prereqs
 
-    # Find existing agents
+    # Detect workspace layout
     log_step "Scanning Workspace"
+    RESTRUCTURED_AGENT=""
+    local layout
+    layout=$(detect_layout)
+
+    case "$layout" in
+        flat)
+            log_info "Detected: single-agent (flat) workspace"
+            restructure_flat_workspace
+            ;;
+        multiagent)
+            log_info "Detected: multi-agent workspace"
+            ;;
+        none)
+            log_error "No existing agents found in $WORKSPACE_DIR"
+            log_info "Agents must have both IDENTITY.md and SOUL.md to be detected."
+            log_tip "If this is a fresh install (no agents yet), use the install script:"
+            log_tip "  curl -fsSL https://raw.githubusercontent.com/jimcadden/openclaw-multiagent/main/install.sh | bash"
+            exit 1
+            ;;
+    esac
+
+    # Collect agents (post-restructure if applicable)
     local agents
     agents=$(find_agents)
-
-    if [ -z "$agents" ]; then
-        log_error "No existing agents found in $WORKSPACE_DIR"
-        log_info "Agents must have both IDENTITY.md and SOUL.md to be detected."
-        log_tip "If this is a fresh install (no agents yet), use the install script:"
-        log_tip "  curl -fsSL https://raw.githubusercontent.com/jimcadden/openclaw-multiagent/main/install.sh | bash"
-        exit 1
-    fi
-
-    log_info "Found agents: $agents"
+    log_info "Agents: $agents"
 
     # Confirm before proceeding
     if ! $DRY_RUN; then
@@ -465,6 +661,11 @@ main() {
     for agent in $agents; do
         setup_agent_symlinks "$agent"
     done
+
+    # Register restructured agent in openclaw.json if needed
+    if [ -n "$RESTRUCTURED_AGENT" ] && ! $DRY_RUN; then
+        register_agent_in_config "$RESTRUCTURED_AGENT"
+    fi
 
     update_skills_config
     git_commit

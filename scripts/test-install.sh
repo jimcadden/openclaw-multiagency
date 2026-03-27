@@ -470,6 +470,67 @@ if should_run "migrate_dry_run"; then
     teardown_env
 fi
 
+section "migrate.sh — flat workspace detection"
+
+if should_run "migrate_flat_layout_detected"; then
+    setup_env
+    stub_bin "git" "git version 2.x"
+    stub_bin "python3" "Python 3.x"
+    setup_openclaw
+    setup_git_identity
+    init_workspace_git "$TMP_WORKSPACE"
+    # Flat layout: agent files at workspace root, not in subdir
+    printf "# IDENTITY\n" > "$TMP_WORKSPACE/IDENTITY.md"
+    printf "# SOUL\n"     > "$TMP_WORKSPACE/SOUL.md"
+    run_migrate --dry-run --workspace "$TMP_WORKSPACE" --openclaw-dir "$TMP_OC_DIR"
+    if out_contains "flat"; then
+        pass "migrate_flat_layout_detected: flat layout detected in dry run"
+    else
+        fail "migrate_flat_layout_detected: RC=$RC, output: $OUT"
+        echo "  output: $OUT"
+    fi
+    teardown_env
+fi
+
+if should_run "migrate_flat_restructure_dry_run"; then
+    setup_env
+    stub_bin "git" "git version 2.x"
+    stub_bin "python3" "Python 3.x"
+    setup_openclaw
+    setup_git_identity
+    init_workspace_git "$TMP_WORKSPACE"
+    printf "# IDENTITY\n" > "$TMP_WORKSPACE/IDENTITY.md"
+    printf "# SOUL\n"     > "$TMP_WORKSPACE/SOUL.md"
+    printf "# MEMORY\n"   > "$TMP_WORKSPACE/MEMORY.md"
+    run_migrate --dry-run --workspace "$TMP_WORKSPACE" --openclaw-dir "$TMP_OC_DIR"
+    if out_contains "Would move" || out_contains "Would create"; then
+        pass "migrate_flat_restructure_dry_run: shows restructure plan"
+    else
+        fail "migrate_flat_restructure_dry_run: RC=$RC"
+        echo "  output: $OUT"
+    fi
+    teardown_env
+fi
+
+section "migrate.sh — no git repo (offer to init)"
+
+if should_run "migrate_no_git_offers_init"; then
+    setup_env
+    stub_bin "git" "git version 2.x"
+    stub_bin "python3" "Python 3.x"
+    setup_openclaw
+    setup_git_identity
+    mkdir -p "$TMP_WORKSPACE"
+    # No .git — workspace exists but is not a repo
+    run_migrate --workspace "$TMP_WORKSPACE" --openclaw-dir "$TMP_OC_DIR"
+    if out_contains "Initialize git"; then
+        pass "migrate_no_git_offers_init: prompts to initialize git repo"
+    else
+        fail "migrate_no_git_offers_init: RC=$RC, output: $OUT"
+    fi
+    teardown_env
+fi
+
 section "migrate.sh — prereqs all pass"
 
 if should_run "migrate_prereqs_all_pass"; then
