@@ -31,25 +31,21 @@ Things like:
 - Default speaker: Kitchen HomePod
 ```
 
-## Why Separate?
-
-Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.
-
 ---
 
 ## Skills Registry
 
-Track which skills are custom-built vs downloaded:
+Track which skills are custom-built vs kit-provided:
 
-### Custom/Local Skills (You Created)
-<!-- Add your custom skills here as you create them -->
-- *None yet* — add your first custom skill here
+### Custom Skills (You Created)
+<!-- Add your custom skills here -->
+- *None yet*
 
-### Downloaded/Default Skills
-<!-- Skills from OpenClaw or installed packages -->
-- multiagent-state-manager — Git workspace management (from openclaw-multiagent kit)
-- multiagent-telegram-setup — Telegram bot configuration (from openclaw-multiagent kit)
-- multiagent-kit-guide — Quick reference for the multiagent kit
+### Kit Skills
+- multiagent-state-manager — Git workspace management
+- multiagent-telegram-setup — Telegram bot configuration
+- multiagent-add-agent — Create new agents
+- multiagent-memory-manager — Memory distillation
 
 ---
 
