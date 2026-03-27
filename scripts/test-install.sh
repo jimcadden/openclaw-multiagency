@@ -462,6 +462,11 @@ if should_run "migrate_dry_run"; then
     else
         fail "migrate_dry_run: dry run created files it should not have"
     fi
+    if out_contains "extraDirs"; then
+        pass "migrate_dry_run: dry run shows extraDirs config step"
+    else
+        fail "migrate_dry_run: expected extraDirs mention in dry run output"
+    fi
     teardown_env
 fi
 

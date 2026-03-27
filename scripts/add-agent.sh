@@ -101,11 +101,6 @@ create_agent() {
     
     cp -r "$KIT_DIR/workspace-template" "$WORKSPACE_DIR/$AGENT_NAME"
     
-    # Symlink shared skills
-    for skill in multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
-        ln -s "../shared/skills/$skill" "$WORKSPACE_DIR/$AGENT_NAME/$skill"
-    done
-    
     log_success "Agent workspace created at $WORKSPACE_DIR/$AGENT_NAME"
 }
 

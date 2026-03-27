@@ -14,7 +14,7 @@ Quick reference for working with the `openclaw-multiagent` kit.
 Use the interactive updater (recommended):
 
 ```bash
-./multiagent-kit-guide/scripts/update-kit.sh
+{baseDir}/scripts/update-kit.sh
 ```
 
 Or manually:
@@ -212,9 +212,7 @@ git push origin <version>
 
 ## Helper Scripts
 
-This skill includes helper scripts in `scripts/`:
+Scripts are in `{baseDir}/scripts/`:
 
 - `update-kit.sh` — Interactive kit updater
 - `check-setup.sh` — Verify workspace health
-
-See individual scripts for usage.

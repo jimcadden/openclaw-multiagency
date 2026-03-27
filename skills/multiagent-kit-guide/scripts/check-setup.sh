@@ -57,6 +57,28 @@ for skill in multiagent-state-manager multiagent-telegram-setup multiagent-kit-g
     fi
 done
 
+# Check skills.load.extraDirs in openclaw.json
+echo
+echo "Checking skills config..."
+OC_CONFIG="${OPENCLAW_DIR:-$HOME/.openclaw}/openclaw.json"
+if [ -f "$OC_CONFIG" ]; then
+    SHARED_SKILLS="$WORKSPACE_DIR/shared/skills"
+    if python3 -c "
+import json, sys
+with open('$OC_CONFIG') as f:
+    c = json.load(f)
+dirs = c.get('skills', {}).get('load', {}).get('extraDirs', [])
+sys.exit(0 if '$SHARED_SKILLS' in dirs else 1)
+" 2>/dev/null; then
+        check_pass "skills.load.extraDirs contains shared/skills"
+    else
+        check_fail "skills.load.extraDirs missing '$SHARED_SKILLS'"
+        check_fail "  Run install or migrate to fix, or add manually to $OC_CONFIG"
+    fi
+else
+    check_warn "openclaw.json not found at $OC_CONFIG — cannot verify skills config"
+fi
+
 # Check agents
 echo
 echo "Checking agents..."
@@ -64,18 +86,8 @@ agent_count=0
 for dir in "$WORKSPACE_DIR"/*/; do
     if [ -f "$dir/IDENTITY.md" ] && [ -f "$dir/SOUL.md" ]; then
         agent_name=$(basename "$dir")
-        ((agent_count++))
-        
-        missing=0
-        for skill in multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
-            [ -L "$dir/$skill" ] || missing=$((missing + 1))
-        done
-        
-        if [ $missing -eq 0 ]; then
-            check_pass "$agent_name"
-        else
-            check_fail "$agent_name (missing symlinks)"
-        fi
+        agent_count=$((agent_count + 1))
+        check_pass "$agent_name found"
     fi
 done
 

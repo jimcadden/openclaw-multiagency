@@ -57,9 +57,10 @@ Or with an agent name:
 <workspace>/
 ├── kit/                       # this submodule (unchanged)
 ├── shared/
-│   └── skills/
+│   └── skills/                # registered via skills.load.extraDirs in openclaw.json
 │       ├── multiagent-state-manager  -> ../../kit/skills/multiagent-state-manager
-│       └── multiagent-telegram-setup -> ../../kit/skills/multiagent-telegram-setup
+│       ├── multiagent-telegram-setup -> ../../kit/skills/multiagent-telegram-setup
+│       └── multiagent-kit-guide      -> ../../kit/skills/multiagent-kit-guide
 └── <agent-name>/
     ├── AGENTS.md
     ├── HEARTBEAT.md
@@ -67,10 +68,10 @@ Or with an agent name:
     ├── MEMORY.md
     ├── SOUL.md
     ├── TOOLS.md
-    ├── USER.md
-    ├── multiagent-state-manager  -> ../shared/skills/multiagent-state-manager
-    └── multiagent-telegram-setup -> ../shared/skills/multiagent-telegram-setup
+    └── USER.md
 ```
+
+Skills are loaded from `shared/skills/` via `skills.load.extraDirs` in `openclaw.json` — no per-agent symlinks needed.
 
 ---
 
@@ -136,16 +137,13 @@ cd ..
 
 # 2. Create shared skills directory
 mkdir -p shared/skills
-cd shared/skills
-ln -s ../../kit/skills/multiagent-state-manager multiagent-state-manager
-ln -s ../../kit/skills/multiagent-telegram-setup multiagent-telegram-setup
-cd ../..
+ln -s ../../kit/skills/multiagent-state-manager shared/skills/multiagent-state-manager
+ln -s ../../kit/skills/multiagent-telegram-setup shared/skills/multiagent-telegram-setup
+ln -s ../../kit/skills/multiagent-kit-guide     shared/skills/multiagent-kit-guide
 
-# 3. Add per-agent symlinks (repeat for each agent)
-cd <agent-name>
-ln -s ../shared/skills/multiagent-state-manager multiagent-state-manager
-ln -s ../shared/skills/multiagent-telegram-setup multiagent-telegram-setup
-cd ..
+# 3. Register shared skills in openclaw.json
+# Add to ~/.openclaw/openclaw.json:
+# "skills": { "load": { "extraDirs": ["<workspace>/shared/skills"] } }
 
 # 4. Commit
 git add -A

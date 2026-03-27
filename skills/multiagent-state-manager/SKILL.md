@@ -26,7 +26,7 @@ Checkpoint your agent workspace state using git. Track changes to memory files, 
 Use the reminder script to check for uncommitted changes and prompt the user:
 
 ```bash
-./scripts/reminder.sh
+{baseDir}/scripts/reminder.sh
 ```
 
 **When to remind the user:**
@@ -55,7 +55,7 @@ To check status: `openclaw cron list`
 ### Commit workspace changes
 
 ```bash
-./scripts/commit_workspace.sh
+{baseDir}/scripts/commit_workspace.sh
 ```
 
 Auto-generates commit message from changed files, adds agent prefix (e.g., `[main]`), includes OpenClaw version/model footer, and **auto-pushes to remote** if configured.
@@ -63,7 +63,7 @@ Auto-generates commit message from changed files, adds agent prefix (e.g., `[mai
 Or provide custom message:
 
 ```bash
-./scripts/commit_workspace.sh "" "Added email pipeline notes"
+{baseDir}/scripts/commit_workspace.sh "" "Added email pipeline notes"
 ```
 
 **Commit format:**
@@ -77,7 +77,7 @@ Model: <model-id>
 ### Check what changed
 
 ```bash
-./scripts/status_summary.sh
+{baseDir}/scripts/status_summary.sh
 ```
 
 Shows uncommitted changes, recent commits, and remote status.
@@ -85,13 +85,13 @@ Shows uncommitted changes, recent commits, and remote status.
 ### Push to GitHub
 
 ```bash
-./scripts/push_remote.sh
+{baseDir}/scripts/push_remote.sh
 ```
 
 Pushes to `origin/main` by default. Customize:
 
 ```bash
-./scripts/push_remote.sh "" origin feature-branch
+{baseDir}/scripts/push_remote.sh "" origin feature-branch
 ```
 
 ## Workflow
@@ -102,6 +102,8 @@ Pushes to `origin/main` by default. Customize:
 4. **Push** (optional) → Sync to GitHub
 
 ## Scripts
+
+All scripts are in `{baseDir}/scripts/`:
 
 - **commit_workspace.sh** — Stages changes, commits with `[agent]` prefix + metadata footer, and auto-pushes
 - **status_summary.sh** — Human-readable git status + recent commits

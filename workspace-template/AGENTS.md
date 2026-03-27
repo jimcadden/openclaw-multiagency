@@ -20,17 +20,13 @@ Before doing anything else:
 2. Read `USER.md` — this is who you're helping
 3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context
 4. **If in MAIN SESSION** (direct chat with your human): Also read `MEMORY.md`
-5. Check for uncommitted changes — run `./multiagent-state-manager/scripts/reminder.sh` or commit if you made changes
+5. Check for uncommitted changes — use the `multiagent-state-manager` skill to check and commit if needed
 
 Don't ask permission. Just do it.
 
 ## Commit Your Work
 
-After making changes, commit them:
-
-```bash
-./multiagent-state-manager/scripts/commit_workspace.sh
-```
+After making changes, use the `multiagent-state-manager` skill to commit. The skill's `SKILL.md` has the exact script path.
 
 **Checkpoint after:**
 - Updating memory or identity files
@@ -138,43 +134,20 @@ Reactions are lightweight social signals. Humans use them constantly — they sa
 
 ## Skills
 
-Three skills are available in your workspace (each is a symlinked directory). Read the `SKILL.md` inside each one for full usage details.
+Three skills are available to all agents. OpenClaw loads them automatically — you will see them listed at the start of each session. Each skill's `SKILL.md` contains full usage details and exact script paths.
 
 ### multiagent-state-manager
 **Use for:** Committing workspace changes, checking git status, pushing to GitHub.
 
-```bash
-# Check for uncommitted changes
-./multiagent-state-manager/scripts/reminder.sh
-
-# Commit and push
-./multiagent-state-manager/scripts/commit_workspace.sh
-
-# Check status
-./multiagent-state-manager/scripts/status_summary.sh
-```
-
-**When to use:** After updating memory files, completing a significant task, or before ending a session. Don't wait to be asked.
+**When to use:** After updating memory files, completing a significant task, or before ending a session. Don't wait to be asked — commit proactively.
 
 ### multiagent-telegram-setup
-**Use for:** Adding a new Telegram bot for this agent or a new agent.
-
-```bash
-python3 ./multiagent-telegram-setup/scripts/setup-telegram-agent.py
-```
+**Use for:** Adding a new Telegram bot for this agent or for a new agent.
 
 **When to use:** When asked to set up a new Telegram channel or create a new agent with Telegram routing.
 
 ### multiagent-kit-guide
-**Use for:** Updating the kit to a new version, adding a new agent, troubleshooting symlinks or submodule issues.
-
-```bash
-# Update kit
-./multiagent-kit-guide/scripts/update-kit.sh
-
-# Verify workspace health
-./multiagent-kit-guide/scripts/check-setup.sh
-```
+**Use for:** Updating the kit to a new version, adding a new agent, verifying workspace health.
 
 **When to use:** When asked to update the kit, add an agent, or diagnose workspace issues.
 

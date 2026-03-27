@@ -196,19 +196,10 @@ create_agent() {
     
     if $DRY_RUN; then
         log_dry "Would copy: $KIT_DIR/workspace-template -> $WORKSPACE_DIR/$AGENT_NAME"
-        for skill in multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
-            log_dry "Would symlink: $WORKSPACE_DIR/$AGENT_NAME/$skill -> ../shared/skills/$skill"
-        done
         return 0
     fi
     
     cp -r "$KIT_DIR/workspace-template" "$WORKSPACE_DIR/$AGENT_NAME"
-    
-    # Symlink shared skills into agent directory
-    for skill in multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
-        ln -s "../shared/skills/$skill" "$WORKSPACE_DIR/$AGENT_NAME/$skill"
-    done
-    
     log_success "Agent workspace created at $WORKSPACE_DIR/$AGENT_NAME"
 }
 
@@ -291,6 +282,7 @@ update_openclaw_config() {
         log_dry "Would backup: $CONFIG_FILE"
         log_dry "Would add agent to agents.list:"
         log_dry "  { \"id\": \"$AGENT_NAME\", \"workspace\": \"$WORKSPACE_DIR/$AGENT_NAME\" }"
+        log_dry "Would set skills.load.extraDirs: [\"$WORKSPACE_DIR/shared/skills\"]"
         return 0
     fi
     
@@ -310,38 +302,46 @@ import sys
 config_file = "$CONFIG_FILE"
 agent_id = "$AGENT_NAME"
 workspace = "$WORKSPACE_DIR/$AGENT_NAME"
+shared_skills = "$WORKSPACE_DIR/shared/skills"
 
 try:
     with open(config_file, 'r') as f:
         config = json.load(f)
-    
-    # Ensure agents.list exists
+
+    # ── agents.list ──────────────────────────────────────────────────────────
     if 'agents' not in config:
         config['agents'] = {}
     if 'list' not in config['agents']:
         config['agents']['list'] = []
-    
-    # Check if agent already exists
+
     existing = [a for a in config['agents']['list'] if a.get('id') == agent_id]
-    if existing:
-        print(f"Agent '{agent_id}' already exists in config")
-        sys.exit(0)
-    
-    # Add new agent
-    config['agents']['list'].append({
-        'id': agent_id,
-        'workspace': workspace
-    })
-    
+    if not existing:
+        config['agents']['list'].append({'id': agent_id, 'workspace': workspace})
+        print(f"Added agent '{agent_id}' to agents.list")
+    else:
+        print(f"Agent '{agent_id}' already in agents.list")
+
+    # ── skills.load.extraDirs ────────────────────────────────────────────────
+    if 'skills' not in config:
+        config['skills'] = {}
+    if 'load' not in config['skills']:
+        config['skills']['load'] = {}
+    extra_dirs = config['skills']['load'].get('extraDirs', [])
+    if shared_skills not in extra_dirs:
+        extra_dirs.append(shared_skills)
+        config['skills']['load']['extraDirs'] = extra_dirs
+        print(f"Added '{shared_skills}' to skills.load.extraDirs")
+    else:
+        print(f"skills.load.extraDirs already contains shared/skills")
+
     with open(config_file, 'w') as f:
         json.dump(config, f, indent=2)
-    
-    print(f"Added agent '{agent_id}' to OpenClaw config")
+
 except Exception as e:
     print(f"Error updating config: {e}", file=sys.stderr)
     sys.exit(1)
 EOF
-    
+
     log_success "OpenClaw config updated"
 }
 

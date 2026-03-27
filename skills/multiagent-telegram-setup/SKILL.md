@@ -29,10 +29,10 @@ All new agents are created in the workspace root with shared skills and a standa
 
 ## Quick Start
 
-Run the interactive setup from your workspace root:
+Run the interactive setup:
 
 ```bash
-python3 ./kit/skills/multiagent-telegram-setup/scripts/setup-telegram-agent.py
+python3 {baseDir}/scripts/setup-telegram-agent.py
 ```
 
 This will:

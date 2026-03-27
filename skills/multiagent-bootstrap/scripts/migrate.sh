@@ -272,28 +272,74 @@ setup_agent_symlinks() {
     log_info "Wiring agent: $agent_name"
 
     if $DRY_RUN; then
-        log_dry "  Would clean up legacy symlinks in $agent_dir"
-        for skill in multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
-            log_dry "  Would symlink: $agent_name/$skill -> ../shared/skills/$skill"
-        done
+        log_dry "  Would remove legacy symlinks from $agent_dir (if present)"
         return 0
     fi
 
     cd "$agent_dir"
 
-    # Remove old-name and old-target symlinks
-    for old in agent-state-manager telegram-agent-setup; do
-        [ -L "$old" ] && rm -f "$old" && log_success "  Removed legacy symlink: $old"
-    done
-
-    for skill in multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
-        [ -L "$skill" ] && rm -f "$skill"
-        # Route through shared/ (consistent with fresh install layout)
-        ln -s "../shared/skills/$skill" "$skill"
-        log_success "  Linked $agent_name/$skill"
+    # Remove all legacy per-agent skill symlinks (old names and current names)
+    # Skills are now discovered via skills.load.extraDirs in openclaw.json
+    for link in agent-state-manager telegram-agent-setup \
+                multiagent-state-manager multiagent-telegram-setup multiagent-kit-guide; do
+        if [ -L "$link" ]; then
+            rm -f "$link"
+            log_success "  Removed legacy symlink: $link"
+        fi
     done
 
     cd "$WORKSPACE_DIR"
+}
+
+# ─── OpenClaw config: skills.load.extraDirs ──────────────────────────────────
+
+update_skills_config() {
+    local CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
+    local SHARED_SKILLS="$WORKSPACE_DIR/shared/skills"
+
+    log_step "Skills Config"
+
+    if $DRY_RUN; then
+        log_dry "Would set skills.load.extraDirs: [\"$SHARED_SKILLS\"] in $CONFIG_FILE"
+        return 0
+    fi
+
+    if [ ! -f "$CONFIG_FILE" ]; then
+        log_warn "openclaw.json not found — skipping skills.load.extraDirs update"
+        log_info "Add manually: skills.load.extraDirs: [\"$SHARED_SKILLS\"]"
+        return 0
+    fi
+
+    python3 << EOF
+import json, sys
+
+config_file = "$CONFIG_FILE"
+shared_skills = "$SHARED_SKILLS"
+
+try:
+    with open(config_file, 'r') as f:
+        config = json.load(f)
+
+    if 'skills' not in config:
+        config['skills'] = {}
+    if 'load' not in config['skills']:
+        config['skills']['load'] = {}
+    extra_dirs = config['skills']['load'].get('extraDirs', [])
+    if shared_skills not in extra_dirs:
+        extra_dirs.append(shared_skills)
+        config['skills']['load']['extraDirs'] = extra_dirs
+        print(f"Added '{shared_skills}' to skills.load.extraDirs")
+    else:
+        print(f"skills.load.extraDirs already contains shared/skills")
+
+    with open(config_file, 'w') as f:
+        json.dump(config, f, indent=2)
+except Exception as e:
+    print(f"Error updating config: {e}", file=sys.stderr)
+    sys.exit(1)
+EOF
+
+    log_success "skills.load.extraDirs configured"
 }
 
 # ─── Git commit ───────────────────────────────────────────────────────────────
@@ -415,11 +461,12 @@ main() {
     setup_kit
     setup_shared_skills
 
-    log_step "Wiring Agent Symlinks"
+    log_step "Cleaning Up Agent Directories"
     for agent in $agents; do
         setup_agent_symlinks "$agent"
     done
 
+    update_skills_config
     git_commit
 
     echo
