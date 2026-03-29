@@ -263,7 +263,7 @@ Add the group to your Telegram account config:
         "streaming": "partial",
         "groups": {
           "-1001234567890": {
-            "systemPrompt": "You are in a Telegram forum group. Each topic thread is a separate long-running conversation with its own memory. Follow the Thread Memory Protocol in BOOT.md."
+            "systemPrompt": "You are in a Telegram forum group. Each topic thread is a separate long-running conversation with its own memory."
           }
         }
       }
@@ -279,7 +279,7 @@ This is the critical step for thread memory. Each topic's system prompt injects 
 ```json
 "groups": {
   "-1001234567890": {
-    "systemPrompt": "You are in a Telegram forum group. Each topic thread is a separate long-running conversation with its own memory. Follow the Thread Memory Protocol in BOOT.md.",
+    "systemPrompt": "You are in a Telegram forum group. Each topic thread is a separate long-running conversation with its own memory.",
     "topics": {
       "123": {
         "systemPrompt": "SESSION_KEY: agent:main:telegram:your_bot:group:-1001234567890:topic:123\nTopic: Health & Fitness"
