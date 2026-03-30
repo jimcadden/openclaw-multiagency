@@ -315,7 +315,7 @@ fi
 
 # ─── migrate.sh tests ─────────────────────────────────────────────────────────
 
-MIGRATE_SH="$REPO_ROOT/skills/multiagent-bootstrap/scripts/migrate.sh"
+MIGRATE_SH="$REPO_ROOT/skills/multiagency-bootstrap/scripts/migrate.sh"
 
 # Run migrate.sh with given args in the isolated environment.
 run_migrate() {
@@ -613,17 +613,17 @@ if should_run "migrate_shared_skills_set"; then
     init_workspace_git "$TMP_WORKSPACE"
     make_agent_dir "$TMP_WORKSPACE" "myagent"
     run_migrate --dry-run --workspace "$TMP_WORKSPACE" --openclaw-dir "$TMP_OC_DIR"
-    for expected_skill in multiagent-session multiagent-add-agent multiagent-remove-agent multiagent-memory-manager multiagent-state-manager multiagent-telegram-setup multiagent-thread-memory; do
+    for expected_skill in multiagency-session multiagency-add-agent multiagency-remove-agent multiagency-memory-manager multiagency-state-manager multiagency-telegram-setup multiagency-thread-memory; do
         if out_contains "$expected_skill"; then
             pass "migrate_shared_skills_set: $expected_skill included"
         else
             fail "migrate_shared_skills_set: $expected_skill missing from dry run output"
         fi
     done
-    if ! out_contains "multiagent-kit-guide"; then
-        pass "migrate_shared_skills_set: multiagent-kit-guide correctly excluded"
+    if ! out_contains "multiagency-kit-guide"; then
+        pass "migrate_shared_skills_set: multiagency-kit-guide correctly excluded"
     else
-        fail "migrate_shared_skills_set: multiagent-kit-guide should not be in shared skills"
+        fail "migrate_shared_skills_set: multiagency-kit-guide should not be in shared skills"
     fi
     teardown_env
 fi

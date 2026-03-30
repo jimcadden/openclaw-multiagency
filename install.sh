@@ -2,7 +2,7 @@
 #
 # Install OpenClaw Multi-Agent Kit
 # 
-# Quick install: curl -fsSL https://raw.githubusercontent.com/jimcadden/openclaw-multiagent/main/install.sh | bash
+# Quick install: curl -fsSL https://raw.githubusercontent.com/jimcadden/openclaw-multiagency/main/install.sh | bash
 
 set -e
 
@@ -23,7 +23,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Configuration
-KIT_REPO="https://github.com/jimcadden/openclaw-multiagent.git"
+KIT_REPO="https://github.com/jimcadden/openclaw-multiagency.git"
 WORKSPACE_DIR=""
 AGENT_NAME=""
 OPENCLAW_DIR=""
@@ -335,8 +335,8 @@ setup_kit() {
 run_bootstrap() {
     log_step "Creating Agent"
     
-    if [ -f "$WORKSPACE_DIR/kit/skills/multiagent-bootstrap/scripts/setup.sh" ]; then
-        "$WORKSPACE_DIR/kit/skills/multiagent-bootstrap/scripts/setup.sh" "$AGENT_NAME"
+    if [ -f "$WORKSPACE_DIR/kit/skills/multiagency-bootstrap/scripts/setup.sh" ]; then
+        "$WORKSPACE_DIR/kit/skills/multiagency-bootstrap/scripts/setup.sh" "$AGENT_NAME"
     else
         log_error "Bootstrap script not found"
         exit 1

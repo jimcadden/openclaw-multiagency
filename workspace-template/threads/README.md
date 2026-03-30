@@ -75,6 +75,6 @@ When creating a new thread folder, use this template for its `MEMORY.md`:
 **Session end:**
 1. Update `threads/{session-key}/MEMORY.md` with new context
 2. Optionally write `threads/{session-key}/memory/YYYY-MM-DD.md` for raw session notes
-3. Commit with `multiagent-state-manager`
+3. Commit with `multiagency-state-manager`
 
-See `shared/skills/multiagent-thread-memory/SKILL.md` for the full Thread Memory Protocol.
+See `shared/skills/multiagency-thread-memory/SKILL.md` for the full Thread Memory Protocol.

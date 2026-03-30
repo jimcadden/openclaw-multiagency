@@ -1,4 +1,4 @@
-# openclaw-multiagent
+# openclaw-multiagency
 
 Multi-agent workspace toolkit for OpenClaw. Distributed via Git submodules.
 
@@ -11,12 +11,12 @@ A collection of skills and templates for running multiple OpenClaw agents with s
 One-liner for fresh OpenClaw installs:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jimcadden/openclaw-multiagent/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jimcadden/openclaw-multiagency/main/install.sh | bash
 ```
 
 With options:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jimcadden/openclaw-multiagent/main/install.sh | bash -s -- --workspace ~/my-agents --agent assistant
+curl -fsSL https://raw.githubusercontent.com/jimcadden/openclaw-multiagency/main/install.sh | bash -s -- --workspace ~/my-agents --agent assistant
 ```
 
 **Options:**
@@ -36,7 +36,7 @@ curl -fsSL https://raw.githubusercontent.com/jimcadden/openclaw-multiagent/main/
 | Scenario | What to Run |
 |----------|-------------|
 | **Fresh OpenClaw install** (no agents yet) | `curl .../install.sh \| bash` (above) |
-| **Already have agents** | `./kit/skills/multiagent-bootstrap/scripts/migrate.sh` |
+| **Already have agents** | `./kit/skills/multiagency-bootstrap/scripts/migrate.sh` |
 
 ### Fresh Install
 
@@ -52,7 +52,7 @@ The install script handles everything:
 Already have agents with IDENTITY.md, MEMORY.md, etc.? Use the migration script:
 
 ```bash
-./kit/skills/multiagent-bootstrap/scripts/migrate.sh
+./kit/skills/multiagency-bootstrap/scripts/migrate.sh
 ```
 
 With options (defaults shown):
@@ -69,7 +69,7 @@ The migration script:
 - Preserves all existing agent data (IDENTITY.md, MEMORY.md, etc.)
 - Prompts before committing
 
-See `skills/multiagent-bootstrap/SKILL.md` for manual steps and agent-driven migration.
+See `skills/multiagency-bootstrap/SKILL.md` for manual steps and agent-driven migration.
 
 ## Manual Install (Old Way)
 
@@ -82,13 +82,13 @@ cd ~/workspaces
 git init
 
 # 2. Add this repo as a submodule
-git submodule add https://github.com/jimcadden/openclaw-multiagent.git kit
+git submodule add https://github.com/jimcadden/openclaw-multiagency.git kit
 
 # 3. Checkout a stable version
 cd kit && git checkout v0.2.2 && cd ..
 
 # 4. Run bootstrap (one-time setup)
-./kit/skills/multiagent-bootstrap/scripts/setup.sh
+./kit/skills/multiagency-bootstrap/scripts/setup.sh
 
 # 5. Restart OpenClaw
 openclaw gateway restart
@@ -98,10 +98,10 @@ openclaw gateway restart
 
 | Component | Purpose |
 |-----------|---------|
-| `multiagent-bootstrap` | One-time setup script — creates first agent, wires up config |
-| `multiagent-state-manager` | Git workflow for committing workspace changes |
-| `multiagent-telegram-setup` | Interactive Telegram bot creation |
-| `multiagent-kit-guide` | Quick reference for kit usage |
+| `multiagency-bootstrap` | One-time setup script — creates first agent, wires up config |
+| `multiagency-state-manager` | Git workflow for committing workspace changes |
+| `multiagency-telegram-setup` | Interactive Telegram bot creation |
+| `multiagency-kit-guide` | Quick reference for kit usage |
 | `workspace-template/` | Starter files for new agents (SOUL.md, USER.md, etc.) |
 
 ## Creating Additional Agents
@@ -111,7 +111,7 @@ After the initial setup, you can add more agents:
 **Quick way (recommended):**
 ```bash
 cd <workspace>
-./kit/skills/multiagent-add-agent/scripts/add-agent.sh my-new-agent
+./kit/skills/multiagency-add-agent/scripts/add-agent.sh my-new-agent
 # Handles: workspace creation, identity customization, Telegram prompt, git commit
 ```
 
@@ -132,8 +132,36 @@ git fetch
 git checkout v0.3.0  # or latest version
 cd ..
 git add kit
-git commit -m "[main] Update multiagent kit to v0.3.0"
+git commit -m "[main] Update multiagency kit to v0.3.0"
 ```
+
+## Upgrading from v0.2.x (multiagent) to v0.3.0+ (multiagency)
+
+In v0.3.0 the project was renamed from `multiagent` to `multiagency`. Skills were
+renamed from `multiagent-*` to `multiagency-*`. Existing deployments need a one-time
+migration:
+
+```bash
+# 1. Update the kit submodule URL (if GitHub repo was renamed)
+git -C kit remote set-url origin https://github.com/jimcadden/openclaw-multiagency.git
+
+# 2. Pull the latest kit
+cd kit && git fetch --tags && git checkout v0.3.0 && cd ..
+
+# 3. Re-sync shared skills (removes old symlinks, creates new ones)
+bash kit/skills/multiagency-kit-guide/scripts/update-kit.sh
+
+# 4. Update agent docs — replace old skill names in each agent directory
+for f in */AGENTS.md */BOOT.md */HEARTBEAT.md */TOOLS.md; do
+  [ -f "$f" ] && sed -i '' 's/multiagent-/multiagency-/g' "$f"
+done
+
+# 5. Commit and push
+git add -A && git commit -m "[kit] Upgrade: multiagent -> multiagency"
+```
+
+> **Note:** GitHub auto-redirects the old repo URL, so existing submodules will continue
+> to fetch even before updating the URL. Updating it explicitly is recommended.
 
 ## Structure
 
@@ -141,15 +169,15 @@ git commit -m "[main] Update multiagent kit to v0.3.0"
 ~/workspaces/
 ├── kit/                           # this submodule
 │   └── skills/
-│       ├── multiagent-bootstrap/
-│       ├── multiagent-state-manager/
-│       ├── multiagent-telegram-setup/
-│       └── multiagent-kit-guide/
+│       ├── multiagency-bootstrap/
+│       ├── multiagency-state-manager/
+│       ├── multiagency-telegram-setup/
+│       └── multiagency-kit-guide/
 ├── shared/skills/                 # symlinks to kit
-│   ├── multiagent-state-manager -> ../kit/skills/multiagent-state-manager
-│   └── multiagent-telegram-setup -> ../kit/skills/multiagent-telegram-setup
+│   ├── multiagency-state-manager -> ../kit/skills/multiagency-state-manager
+│   └── multiagency-telegram-setup -> ../kit/skills/multiagency-telegram-setup
 └── main/                          # your agent
-    └── multiagent-state-manager -> ../shared/skills/multiagent-state-manager
+    └── multiagency-state-manager -> ../shared/skills/multiagency-state-manager
 ```
 
 ## Requirements
@@ -163,7 +191,7 @@ git commit -m "[main] Update multiagent kit to v0.3.0"
 After running the install script, use the health check to verify the workspace is correctly wired up:
 
 ```bash
-bash ~/workspaces/kit/skills/multiagent-kit-guide/scripts/check-setup.sh
+bash ~/workspaces/kit/skills/multiagency-kit-guide/scripts/check-setup.sh
 ```
 
 Expected output:
@@ -171,8 +199,8 @@ Expected output:
 ✅ Kit directory exists
 ✅ Kit is a git repo
 ✅ Kit is on a tagged release
-✅ multiagent-state-manager symlink exists
-✅ multiagent-telegram-setup symlink exists
+✅ multiagency-state-manager symlink exists
+✅ multiagency-telegram-setup symlink exists
 ✅ <agent-name>
 ✅ Git repository initialized
 ```

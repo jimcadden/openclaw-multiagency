@@ -11,8 +11,8 @@ Changes to skills, workspace-template, or scripts can break other parts of the k
 ## Adding or Renaming a Skill
 
 1. **Symlink lists** — The shared/skills symlink set is defined in THREE places. All must match:
-   - `skills/multiagent-bootstrap/scripts/setup.sh` → `setup_shared()` (both dry-run and real loops)
-   - `skills/multiagent-bootstrap/scripts/migrate.sh` → `setup_shared_skills()` (both loops)
+   - `skills/multiagency-bootstrap/scripts/setup.sh` → `setup_shared()` (both dry-run and real loops)
+   - `skills/multiagency-bootstrap/scripts/migrate.sh` → `setup_shared_skills()` (both loops)
    - `scripts/test-install.sh` → `migrate_shared_skills_set` test (expected skill list)
 
 2. **workspace-template references** — If the skill is mentioned in agent docs, update:
@@ -21,9 +21,9 @@ Changes to skills, workspace-template, or scripts can break other parts of the k
    - `workspace-template/TOOLS.md` (skills registry)
    - `workspace-template/HEARTBEAT.md` (if periodic)
 
-3. **update-kit.sh** — `skills/multiagent-kit-guide/scripts/update-kit.sh` must re-sync shared/skills symlinks after a kit version bump, or new skills won't appear until migrate is re-run.
+3. **update-kit.sh** — `skills/multiagency-kit-guide/scripts/update-kit.sh` must re-sync shared/skills symlinks after a kit version bump, or new skills won't appear until migrate is re-run.
 
-4. **kit-guide SKILL.md** — The directory reference in `skills/multiagent-kit-guide/SKILL.md` should reflect the current skill set.
+4. **kit-guide SKILL.md** — The directory reference in `skills/multiagency-kit-guide/SKILL.md` should reflect the current skill set.
 
 ## Modifying workspace-template Files
 

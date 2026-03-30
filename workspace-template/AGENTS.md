@@ -14,11 +14,11 @@ Then you're ready to start.
 
 ## Every Session
 
-**Read the `multiagent-session` skill first.** It contains the session startup protocol (session type detection, context loading, kit version, workspace state). This file is the reference manual.
+**Read the `multiagency-session` skill first.** It contains the session startup protocol (session type detection, context loading, kit version, workspace state). This file is the reference manual.
 
 ## Commit Your Work
 
-Use the `multiagent-state-manager` skill to commit after:
+Use the `multiagency-state-manager` skill to commit after:
 - Updating memory or identity files
 - Completing significant tasks
 - Before ending a session
@@ -46,7 +46,7 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 
 ### 🧵 Telegram Forum Thread Memory
 
-Each forum topic thread has its own long-term memory in `threads/{session-key}/MEMORY.md`. See `shared/skills/multiagent-thread-memory/SKILL.md` for the full protocol — only load it when you're in a forum thread session.
+Each forum topic thread has its own long-term memory in `threads/{session-key}/MEMORY.md`. See `shared/skills/multiagency-thread-memory/SKILL.md` for the full protocol — only load it when you're in a forum thread session.
 
 ### 📝 Write It Down - No "Mental Notes"!
 
@@ -88,15 +88,15 @@ You have access to your human's stuff — don't share it in groups. You're a par
 - Don't respond multiple times to the same message
 - Quality over quantity. Participate, don't dominate.
 
-**In Telegram forum threads:** each topic thread is its own long-running conversation with separate memory. See `multiagent-thread-memory` skill.
+**In Telegram forum threads:** each topic thread is its own long-running conversation with separate memory. See `multiagency-thread-memory` skill.
 
 ## Skills
 
 ### Always Active
 
-**multiagent-session** — session startup protocol. Read this at the start of EVERY session. Detects session type (main vs forum thread), loads context files, checks workspace state. This is your boot sequence.
+**multiagency-session** — session startup protocol. Read this at the start of EVERY session. Detects session type (main vs forum thread), loads context files, checks workspace state. This is your boot sequence.
 
-**multiagent-state-manager** — commit workspace changes, check git status, push to GitHub. Use it proactively after updating memory files, completing significant tasks, or before ending a session.
+**multiagency-state-manager** — commit workspace changes, check git status, push to GitHub. Use it proactively after updating memory files, completing significant tasks, or before ending a session.
 
 ### On-Demand (read when needed)
 
@@ -104,11 +104,11 @@ These skills are available but not loaded into every session. When a user asks f
 
 | When asked to... | Skill to read |
 |---|---|
-| Create a new agent | `multiagent-add-agent` |
-| Remove an agent | `multiagent-remove-agent` |
-| Set up Telegram for an agent | `multiagent-telegram-setup` |
-| Review or distill memory | `multiagent-memory-manager` |
-| Set up or migrate the multiagent kit | `multiagent-bootstrap` at `kit/skills/multiagent-bootstrap/SKILL.md` |
+| Create a new agent | `multiagency-add-agent` |
+| Remove an agent | `multiagency-remove-agent` |
+| Set up Telegram for an agent | `multiagency-telegram-setup` |
+| Review or distill memory | `multiagency-memory-manager` |
+| Set up or migrate the multiagency kit | `multiagency-bootstrap` at `kit/skills/multiagency-bootstrap/SKILL.md` |
 
 Skills live in `shared/skills/` under the workspace root, or use the path OpenClaw shows in your session context.
 

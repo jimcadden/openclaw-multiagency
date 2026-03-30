@@ -1,0 +1,22 @@
+---
+description: Check open GitHub issues on the openclaw-multiagency repo at session start
+alwaysApply: true
+---
+
+# GitHub Issues Awareness
+
+At the start of every session, proactively check for open GitHub issues on this repo:
+
+```bash
+gh issue list --repo jimcadden/openclaw-multiagency --state open --limit 20
+```
+
+- Summarize any open issues that are relevant to the current task or conversation.
+- When planning new features or fixes, cross-reference open issues to avoid duplicate work and to pick up existing bug reports.
+- If the user asks about tasks, roadmap, or "what needs to be done", always run this command first.
+
+## Requirement
+
+The `gh` CLI must be authenticated. If it isn't installed or authenticated, prompt the user:
+1. Install: `brew install gh`
+2. Authenticate: `gh auth login`
