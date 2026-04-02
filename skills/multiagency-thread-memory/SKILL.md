@@ -1,12 +1,14 @@
 ---
 name: multiagency-thread-memory
-description: Thread memory protocol for Telegram forum topic sessions. Load this skill at the start of any session where SESSION_KEY contains :topic: — i.e., you are in a Telegram forum supergroup topic thread.
+description: Thread memory protocol for persistent thread sessions (Telegram forum topics, Discord threads, etc.). Load this skill at the start of any session where SESSION_KEY contains :topic: or :thread: — i.e., you are in a long-running thread with its own session context.
 user-invocable: false
 ---
 
 # Thread Memory Protocol
 
-You are in a Telegram forum topic thread. Each topic is a separate long-running conversation with its own persistent memory. Follow this protocol now.
+You are in a persistent thread session (Telegram forum topic, Discord thread, or similar). Each thread is a separate long-running conversation with its own persistent memory. Follow this protocol now.
+
+> **Why this matters:** Sessions expire after an idle timeout (`sessions.idleTimeout` in `openclaw.json`, default `7d`). When that happens, your transcript resets and you lose all conversational context. Thread memory is the bridge — it survives session expiry and lets you pick up where you left off.
 
 ## Step 1 — Derive Your Thread Folder
 
@@ -86,6 +88,7 @@ Commit the new folder before continuing.
 
 ## Notes
 
-- **Forum topics only.** Regular Telegram groups (no `:topic:` in session key) share one session and have no thread memory.
-- **Don't cross-contaminate.** Thread memory is topic-specific. Never load another thread's memory or your main `MEMORY.md` here.
-- **Session key is stable.** Telegram topic IDs don't change, so the folder name is permanent.
+- **Persistent threads only.** Telegram forum topics (`:topic:` in session key) and Discord threads (`:thread:` in session key) get their own memory. Regular Telegram groups without topics share one session and have no thread memory.
+- **Don't cross-contaminate.** Thread memory is thread-specific. Never load another thread's memory or your main `MEMORY.md` here.
+- **Session key is stable.** Thread IDs don't change, so the folder name is permanent.
+- **Sessions expire.** After `sessions.idleTimeout` (default `7d`) of inactivity, OpenClaw resets the transcript. Your thread memory files on disk are unaffected — always update them before going quiet so you can recover on the next session.

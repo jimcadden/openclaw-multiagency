@@ -261,6 +261,12 @@ If it doesn't respond:
 | `match.channel` | Yes | Channel type (e.g., `telegram`) |
 | `match.accountId` | Yes | Telegram account ID |
 
+### Session Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `sessions.idleTimeout` | No (default: `7d`) | How long a session can be idle before expiring. Duration string: `"30m"`, `"12h"`, `"7d"`. Applies globally to all channels. |
+
 ## Forum Groups (Threads)
 
 Telegram **forum supergroups** have multiple topic threads. OpenClaw treats each topic as a separate session automatically — but you need to configure the group to enable thread memory.
@@ -355,6 +361,36 @@ mkdir -p <workspace>/threads/agent-main-telegram-your_bot-group-1001234567890-to
 **Topic IDs:** Check gateway logs for `messageThreadId` or `resolvedThreadId` when a message arrives from a specific topic.
 
 **Tip:** Send a test message to each topic and check gateway logs immediately — you'll see the full session key being assigned. Copy it directly into your `openclaw.json` topic config.
+
+---
+
+## Session Timeout
+
+OpenClaw assigns each conversation context (DM, group, forum topic, Discord thread) its own session. Sessions expire after a configurable idle period — when that happens, the transcript resets and the agent starts fresh with no memory of the prior conversation.
+
+### Default Behavior
+
+Without explicit configuration, sessions may expire in as little as 24 hours of inactivity. For forum topics and Discord threads that are meant to be long-running conversations, this is too aggressive.
+
+### Configuration
+
+The multiagency kit sets a generous default of `7d` (7 days) during setup. You can adjust it in `openclaw.json`:
+
+```json
+"sessions": {
+  "idleTimeout": "7d"
+}
+```
+
+Supported duration formats: `"30m"`, `"12h"`, `"7d"`. This is a global setting — it applies to all sessions across all channels (Telegram DMs, groups, forum topics, Discord channels, Discord threads).
+
+### Why Thread Memory Matters
+
+Even with a generous timeout, sessions **will** eventually expire. Thread memory (`threads/{session-key}/MEMORY.md`) is the mechanism that bridges session boundaries for long-running conversations. When a session expires and restarts, the agent reloads its thread memory and picks up where it left off.
+
+Without thread memory, session expiry means total amnesia. With it, the agent retains context across any number of session restarts.
+
+See `multiagency-thread-memory` for the full thread memory protocol.
 
 ---
 

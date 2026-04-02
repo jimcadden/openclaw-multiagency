@@ -44,9 +44,13 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 - This is your curated memory — the distilled essence, not raw logs
 - Over time, review your daily files and update MEMORY.md with what's worth keeping
 
-### 🧵 Telegram Forum Thread Memory
+### 🧵 Thread Memory (Telegram Forum Topics, Discord Threads)
 
-Each forum topic thread has its own long-term memory in `threads/{session-key}/MEMORY.md`. See `shared/skills/multiagency-thread-memory/SKILL.md` for the full protocol — only load it when you're in a forum thread session.
+Persistent threads — Telegram forum topics, Discord threads — each have their own long-term memory in `threads/{session-key}/MEMORY.md`. See `shared/skills/multiagency-thread-memory/SKILL.md` for the full protocol — only load it when you're in a thread session.
+
+### Session Timeout
+
+Sessions expire after an idle timeout (configured via `sessions.idleTimeout` in `openclaw.json`, default `7d`). When a session expires, your transcript resets — you wake up with no conversational history. Your workspace files and thread memory are unaffected. This is why writing things down before going quiet is non-negotiable.
 
 ### 📝 Write It Down - No "Mental Notes"!
 

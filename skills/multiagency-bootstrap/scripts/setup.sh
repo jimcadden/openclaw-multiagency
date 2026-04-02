@@ -325,6 +325,7 @@ update_openclaw_config() {
         log_dry "Would add agent to agents.list:"
         log_dry "  { \"id\": \"$AGENT_NAME\", \"workspace\": \"$WORKSPACE_DIR/$AGENT_NAME\" }"
         log_dry "Would set skills.load.extraDirs: [\"$WORKSPACE_DIR/shared/skills\"]"
+        log_dry "Would set sessions.idleTimeout: \"7d\" (if not already set)"
         return 0
     fi
     
@@ -375,6 +376,15 @@ try:
         print(f"Added '{shared_skills}' to skills.load.extraDirs")
     else:
         print(f"skills.load.extraDirs already contains shared/skills")
+
+    # ── sessions.idleTimeout ─────────────────────────────────────────────────
+    if 'sessions' not in config:
+        config['sessions'] = {}
+    if 'idleTimeout' not in config['sessions']:
+        config['sessions']['idleTimeout'] = '7d'
+        print("Set sessions.idleTimeout to '7d' (default)")
+    else:
+        print(f"sessions.idleTimeout already set: {config['sessions']['idleTimeout']}")
 
     with open(config_file, 'w') as f:
         json.dump(config, f, indent=2)

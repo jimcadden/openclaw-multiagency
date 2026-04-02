@@ -356,6 +356,12 @@ try:
 
             print(f"Updated allowFrom and groupAllowFrom on account '{account_id}'")
 
+    # Ensure session idle timeout is configured
+    sessions = config.setdefault("sessions", {})
+    if "idleTimeout" not in sessions:
+        sessions["idleTimeout"] = "7d"
+        print("Set sessions.idleTimeout to '7d' (default)")
+
     with open(config_file, "w") as f:
         json.dump(config, f, indent=2)
 
