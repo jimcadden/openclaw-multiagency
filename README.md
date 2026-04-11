@@ -57,8 +57,8 @@ Already have agents with IDENTITY.md, MEMORY.md, etc.? Use the migration script:
 
 With options (defaults shown):
 ```bash
-./migrate.sh --workspace ~/.openclaw/workspace --openclaw-dir ~/.openclaw
-./migrate.sh --dry-run   # preview changes without making them
+./kit/skills/multiagency-bootstrap/scripts/migrate.sh --workspace ~/.openclaw/workspace --openclaw-dir ~/.openclaw
+./kit/skills/multiagency-bootstrap/scripts/migrate.sh --dry-run   # preview changes without making them
 ```
 
 The migration script:
@@ -71,98 +71,65 @@ The migration script:
 
 See `skills/multiagency-bootstrap/SKILL.md` for manual steps and agent-driven migration.
 
-## Manual Install (Old Way)
-
-If you prefer manual setup:
-
-```bash
-# 1. Create your workspace
-mkdir -p ~/workspaces
-cd ~/workspaces
-git init
-
-# 2. Add this repo as a submodule
-git submodule add https://github.com/jimcadden/openclaw-multiagency.git kit
-
-# 3. Checkout a stable version
-cd kit && git checkout v0.2.2 && cd ..
-
-# 4. Run bootstrap (one-time setup)
-./kit/skills/multiagency-bootstrap/scripts/setup.sh
-
-# 5. Restart OpenClaw
-openclaw gateway restart
-```
-
 ## What's Included
 
 | Component | Purpose |
 |-----------|---------|
 | `multiagency-bootstrap` | One-time setup script — creates first agent, wires up config |
+| `multiagency-add-agent` | Add additional agents to an existing workspace |
 | `multiagency-state-manager` | Git workflow for committing workspace changes |
 | `multiagency-telegram-setup` | Interactive Telegram bot creation |
 | `multiagency-discord-setup` | Interactive Discord bot creation |
-| `multiagency-kit-guide` | Quick reference for kit usage |
+| `multiagency-kit-guide` | Quick reference for kit usage, update and health-check scripts |
 | `workspace-template/` | Starter files for new agents (SOUL.md, USER.md, etc.) |
 
-## Creating Additional Agents
+## Creating Agents
 
-After the initial setup, you can add more agents:
+After the initial setup, you can add more agents using the add-agent script:
 
-**Quick way (recommended):**
 ```bash
-cd <workspace>
-./kit/skills/multiagency-add-agent/scripts/add-agent.sh my-new-agent
-# Handles: workspace creation, identity customization, channel setup prompts, git commit
+cd ~/workspaces
+bash kit/skills/multiagency-add-agent/scripts/add-agent.sh my-new-agent
 ```
 
-**Manual way:**
+The script walks you through identity customization, optional Telegram/Discord bot setup, and commits the result.
+
+**Examples:**
+
 ```bash
-cd <workspace>
-cp -r kit/workspace-template my-new-agent
-# Edit my-new-agent/IDENTITY.md, USER.md
-# Add agent to ~/.openclaw/openclaw.json
-# Restart OpenClaw: openclaw gateway restart
+# Basic — prompts for agent name interactively
+bash kit/skills/multiagency-add-agent/scripts/add-agent.sh
+
+# Pass the name directly
+bash kit/skills/multiagency-add-agent/scripts/add-agent.sh research
+
+# Use a non-default workspace location
+WORKSPACE_DIR=~/my-agents bash kit/skills/multiagency-add-agent/scripts/add-agent.sh writer
+
+# Use a non-default OpenClaw config directory
+OPENCLAW_DIR=~/.config/openclaw bash kit/skills/multiagency-add-agent/scripts/add-agent.sh assistant
 ```
 
 ## Updating the Kit
 
-```bash
-cd ~/workspaces/kit
-git fetch
-git checkout v0.3.0  # or latest version
-cd ..
-git add kit
-git commit -m "[main] Update multiagency kit to v0.3.0"
-```
-
-## Upgrading from v0.2.x (multiagent) to v0.3.0+ (multiagency)
-
-In v0.3.0 the project was renamed from `multiagent` to `multiagency`. Skills were
-renamed from `multiagent-*` to `multiagency-*`. Existing deployments need a one-time
-migration:
+From within your workspace directory, run the update script:
 
 ```bash
-# 1. Update the kit submodule URL (if GitHub repo was renamed)
-git -C kit remote set-url origin https://github.com/jimcadden/openclaw-multiagency.git
-
-# 2. Pull the latest kit
-cd kit && git fetch --tags && git checkout v0.3.0 && cd ..
-
-# 3. Re-sync shared skills (removes old symlinks, creates new ones)
+cd ~/workspaces
 bash kit/skills/multiagency-kit-guide/scripts/update-kit.sh
-
-# 4. Update agent docs — replace old skill names in each agent directory
-for f in */AGENTS.md */BOOT.md */HEARTBEAT.md */TOOLS.md; do
-  [ -f "$f" ] && sed -i '' 's/multiagent-/multiagency-/g' "$f"
-done
-
-# 5. Commit and push
-git add -A && git commit -m "[kit] Upgrade: multiagent -> multiagency"
 ```
 
-> **Note:** GitHub auto-redirects the old repo URL, so existing submodules will continue
-> to fetch even before updating the URL. Updating it explicitly is recommended.
+The script will show available versions and prompt you to choose. You can also specify a version directly:
+
+```bash
+# Update to a specific version
+bash kit/skills/multiagency-kit-guide/scripts/update-kit.sh v0.3.1
+
+# Update to the latest version without prompts
+bash kit/skills/multiagency-kit-guide/scripts/update-kit.sh latest --yes
+```
+
+The update script handles everything: fetches the latest tags, checks out the selected version, re-syncs `shared/skills` symlinks, syncs workspace-template changes to existing agents, commits, and restarts the gateway.
 
 ## Structure
 
@@ -171,6 +138,7 @@ git add -A && git commit -m "[kit] Upgrade: multiagent -> multiagency"
 ├── kit/                           # this submodule
 │   └── skills/
 │       ├── multiagency-bootstrap/
+│       ├── multiagency-add-agent/
 │       ├── multiagency-state-manager/
 │       ├── multiagency-telegram-setup/
 │       ├── multiagency-discord-setup/
