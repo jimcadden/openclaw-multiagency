@@ -45,7 +45,7 @@ A cron job runs every 4 hours to automatically check for uncommitted changes:
 - **Job:** `Workspace Commit Reminder`
 - **Schedule:** Every 4 hours (0:00, 4:00, 8:00, 12:00, 16:00, 20:00 UTC)
 - **Action:** Checks git status and sends reminder if changes exist
-- **Delivery:** Telegram DM
+- **Delivery:** Primary channel (Telegram DM, Discord DM, etc.)
 
 To disable: `openclaw cron disable <job-id>`
 To check status: `openclaw cron list`

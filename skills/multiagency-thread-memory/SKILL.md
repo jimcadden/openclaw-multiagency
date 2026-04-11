@@ -1,27 +1,35 @@
 ---
 name: multiagency-thread-memory
-description: Thread memory protocol for persistent thread sessions (Telegram forum topics, Discord threads, etc.). Load this skill at the start of any session where SESSION_KEY contains :topic: or :thread: — i.e., you are in a long-running thread with its own session context.
+description: Thread memory protocol for persistent thread sessions (Telegram forum topics, Discord channels/threads, etc.). Load this skill at the start of any session where SESSION_KEY contains :topic: or :discord:channel: — i.e., you are in a long-running thread with its own session context.
 user-invocable: false
 ---
 
 # Thread Memory Protocol
 
-You are in a persistent thread session (Telegram forum topic, Discord thread, or similar). Each thread is a separate long-running conversation with its own persistent memory. Follow this protocol now.
+You are in a persistent thread session (Telegram forum topic, Discord channel/thread, or similar). Each thread is a separate long-running conversation with its own persistent memory. Follow this protocol now.
 
 > **Why this matters:** Sessions expire after an idle timeout (`sessions.idleTimeout` in `openclaw.json`, default `7d`). When that happens, your transcript resets and you lose all conversational context. Thread memory is the bridge — it survives session expiry and lets you pick up where you left off.
 
 ## Step 1 — Derive Your Thread Folder
 
-Your session key was injected into your system prompt:
+Your session key was injected into your system prompt. Examples:
 ```
 SESSION_KEY: agent:main:telegram:mybot:group:-1001234567890:topic:123
+SESSION_KEY: agent:main:discord:channel:1489699841322909786
 ```
 
-Sanitize it into a folder name: replace `:` with `-`, strip any leading `-` from the chat ID.
+Sanitize it into a folder name: replace `:` with `-`, strip any leading `-` from the chat ID (Telegram only).
 
+**Telegram forum topic:**
 ```
 agent:main:telegram:mybot:group:-1001234567890:topic:123
 → threads/agent-main-telegram-mybot-group-1001234567890-topic-123/
+```
+
+**Discord channel/thread:**
+```
+agent:main:discord:channel:1489699841322909786
+→ threads/agent-main-discord-channel-1489699841322909786/
 ```
 
 ## Step 2 — Load Thread Memory
@@ -61,10 +69,10 @@ Create `threads/{key}/MEMORY.md`:
 # Thread: {Topic Name}
 
 ## Session Key
-{Full session key — e.g., agent:main:telegram:mybot:group:-1001234567890:topic:123}
+{Full session key — e.g., agent:main:telegram:mybot:group:-1001234567890:topic:123 or agent:main:discord:channel:1489699841322909786}
 
 ## Topic
-{Telegram topic name as it appears in the chat}
+{Topic/thread name as it appears in the chat}
 
 ## Purpose
 {What this thread is for}
@@ -88,7 +96,7 @@ Commit the new folder before continuing.
 
 ## Notes
 
-- **Persistent threads only.** Telegram forum topics (`:topic:` in session key) and Discord threads (`:thread:` in session key) get their own memory. Regular Telegram groups without topics share one session and have no thread memory.
+- **Persistent threads only.** Telegram forum topics (`:topic:` in session key) and Discord channels/threads (`:discord:channel:` in session key) get their own memory. Regular Telegram groups without topics share one session and have no thread memory.
 - **Don't cross-contaminate.** Thread memory is thread-specific. Never load another thread's memory or your main `MEMORY.md` here.
 - **Session key is stable.** Thread IDs don't change, so the folder name is permanent.
 - **Sessions expire.** After `sessions.idleTimeout` (default `7d`) of inactivity, OpenClaw resets the transcript. Your thread memory files on disk are unaffected — always update them before going quiet so you can recover on the next session.

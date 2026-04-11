@@ -92,13 +92,13 @@ You have access to your human's stuff — don't share it in groups. You're a par
 - Don't respond multiple times to the same message
 - Quality over quantity. Participate, don't dominate.
 
-**In Telegram forum threads:** each topic thread is its own long-running conversation with separate memory. See `multiagency-thread-memory` skill.
+**In Telegram forum threads and Discord channels/threads:** each is its own long-running conversation with separate memory. See `multiagency-thread-memory` skill.
 
 ## Skills
 
 ### Always Active
 
-**multiagency-session** — session startup protocol. Read this at the start of EVERY session. Detects session type (main vs forum thread), loads context files, checks workspace state. This is your boot sequence.
+**multiagency-session** — session startup protocol. Read this at the start of EVERY session. Detects session type (main vs thread/channel session), loads context files, checks workspace state. This is your boot sequence.
 
 **multiagency-state-manager** — commit workspace changes, check git status, push to GitHub. Use it proactively after updating memory files, completing significant tasks, or before ending a session.
 
@@ -111,6 +111,7 @@ These skills are available but not loaded into every session. When a user asks f
 | Create a new agent | `multiagency-add-agent` |
 | Remove an agent | `multiagency-remove-agent` |
 | Set up Telegram for an agent | `multiagency-telegram-setup` |
+| Set up Discord for an agent | `multiagency-discord-setup` |
 | Review or distill memory | `multiagency-memory-manager` |
 | Set up or migrate the multiagency kit | `multiagency-bootstrap` at `kit/skills/multiagency-bootstrap/SKILL.md` |
 

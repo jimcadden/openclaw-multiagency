@@ -7,7 +7,7 @@ user-invocable: true
 
 # Add New Agent
 
-Creates a new agent workspace from the kit template, registers it in OpenClaw, and optionally sets up Telegram routing.
+Creates a new agent workspace from the kit template, registers it in OpenClaw, and optionally sets up Telegram and/or Discord routing.
 
 ## Sandbox Warning
 
@@ -27,7 +27,7 @@ The script will:
 2. Copy `workspace-template` to `<workspace>/<agent-name>/`
 3. Prompt to customize `IDENTITY.md` and `USER.md`
 4. Prompt for sandbox mode (`inherit` or `off`) and register the agent in `openclaw.json`
-5. Offer to run Telegram setup
+5. Offer to run Telegram and/or Discord setup
 6. Commit changes to git
 
 After running, restart the gateway:
@@ -40,7 +40,7 @@ openclaw gateway restart
 
 When prompted during creation:
 
-- **`inherit`** (default) — the new agent follows `agents.defaults.sandbox.mode`. Under `"non-main"`, non-main sessions (Telegram, group chats, etc.) will be sandboxed; main sessions will not.
+- **`inherit`** (default) — the new agent follows `agents.defaults.sandbox.mode`. Under `"non-main"`, non-main sessions (Telegram, Discord, group chats, etc.) will be sandboxed; main sessions will not.
 - **`off`** — the agent is never sandboxed, regardless of the global default. Use this for agents that need to write outside their workspace (e.g., another orchestration agent).
 
 ## Environment

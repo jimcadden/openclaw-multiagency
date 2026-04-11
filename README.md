@@ -4,7 +4,7 @@ Multi-agent workspace toolkit for OpenClaw. Distributed via Git submodules.
 
 ## What's This?
 
-A collection of skills and templates for running multiple OpenClaw agents with shared state management, git tracking, and easy Telegram setup.
+A collection of skills and templates for running multiple OpenClaw agents with shared state management, git tracking, and easy Telegram/Discord setup.
 
 ## Quick Install (Recommended)
 
@@ -101,6 +101,7 @@ openclaw gateway restart
 | `multiagency-bootstrap` | One-time setup script — creates first agent, wires up config |
 | `multiagency-state-manager` | Git workflow for committing workspace changes |
 | `multiagency-telegram-setup` | Interactive Telegram bot creation |
+| `multiagency-discord-setup` | Interactive Discord bot creation |
 | `multiagency-kit-guide` | Quick reference for kit usage |
 | `workspace-template/` | Starter files for new agents (SOUL.md, USER.md, etc.) |
 
@@ -112,7 +113,7 @@ After the initial setup, you can add more agents:
 ```bash
 cd <workspace>
 ./kit/skills/multiagency-add-agent/scripts/add-agent.sh my-new-agent
-# Handles: workspace creation, identity customization, Telegram prompt, git commit
+# Handles: workspace creation, identity customization, channel setup prompts, git commit
 ```
 
 **Manual way:**
@@ -172,10 +173,12 @@ git add -A && git commit -m "[kit] Upgrade: multiagent -> multiagency"
 │       ├── multiagency-bootstrap/
 │       ├── multiagency-state-manager/
 │       ├── multiagency-telegram-setup/
+│       ├── multiagency-discord-setup/
 │       └── multiagency-kit-guide/
 ├── shared/skills/                 # symlinks to kit
 │   ├── multiagency-state-manager -> ../kit/skills/multiagency-state-manager
-│   └── multiagency-telegram-setup -> ../kit/skills/multiagency-telegram-setup
+│   ├── multiagency-telegram-setup -> ../kit/skills/multiagency-telegram-setup
+│   └── multiagency-discord-setup  -> ../kit/skills/multiagency-discord-setup
 └── main/                          # your agent
     └── multiagency-state-manager -> ../shared/skills/multiagency-state-manager
 ```
@@ -184,7 +187,7 @@ git add -A && git commit -m "[kit] Upgrade: multiagent -> multiagency"
 
 - OpenClaw 2026.3.8+ (must be initialized — `~/.openclaw/openclaw.json` must exist)
 - Git
-- Python 3 (for config updates and Telegram setup)
+- Python 3 (for config updates and channel setup scripts)
 
 ## Verifying Your Install
 
@@ -201,6 +204,7 @@ Expected output:
 ✅ Kit is on a tagged release
 ✅ multiagency-state-manager symlink exists
 ✅ multiagency-telegram-setup symlink exists
+✅ multiagency-discord-setup symlink exists
 ✅ <agent-name>
 ✅ Git repository initialized
 ```

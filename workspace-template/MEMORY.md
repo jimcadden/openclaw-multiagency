@@ -3,6 +3,7 @@
 ## About [Name]
 - Name: 
 - Telegram ID: 
+- Discord ID: 
 - Username: 
 - Timezone: 
 

@@ -44,6 +44,7 @@ Track which skills are custom-built vs kit-provided:
 ### Kit Skills
 - multiagency-state-manager — Git workspace management
 - multiagency-telegram-setup — Telegram bot configuration
+- multiagency-discord-setup — Discord bot configuration
 - multiagency-add-agent — Create new agents
 - multiagency-remove-agent — Remove and archive agents
 - multiagency-memory-manager — Memory distillation

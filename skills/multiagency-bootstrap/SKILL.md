@@ -49,7 +49,7 @@ Or with an agent name:
 3. Creates first agent from `workspace-template/`
 4. Prompts to customize `IDENTITY.md` and `USER.md`
 5. Registers agent in `openclaw.json` and sets `sessions.idleTimeout` to `7d` (if not already configured)
-6. Optionally runs Telegram setup
+6. Optionally runs Telegram and/or Discord setup
 7. Prompts to create initial git commit
 
 ### Prerequisites
@@ -67,6 +67,7 @@ Or with an agent name:
 │   └── skills/                # registered via skills.load.extraDirs in openclaw.json
 │       ├── multiagency-state-manager   -> ../../kit/skills/multiagency-state-manager
 │       ├── multiagency-telegram-setup  -> ../../kit/skills/multiagency-telegram-setup
+│       ├── multiagency-discord-setup   -> ../../kit/skills/multiagency-discord-setup
 │       ├── multiagency-add-agent       -> ../../kit/skills/multiagency-add-agent
 │       └── multiagency-memory-manager  -> ../../kit/skills/multiagency-memory-manager
 └── <agent-name>/
@@ -156,6 +157,7 @@ cd ..
 mkdir -p shared/skills
 ln -s ../../kit/skills/multiagency-state-manager  shared/skills/multiagency-state-manager
 ln -s ../../kit/skills/multiagency-telegram-setup shared/skills/multiagency-telegram-setup
+ln -s ../../kit/skills/multiagency-discord-setup  shared/skills/multiagency-discord-setup
 ln -s ../../kit/skills/multiagency-add-agent      shared/skills/multiagency-add-agent
 ln -s ../../kit/skills/multiagency-memory-manager shared/skills/multiagency-memory-manager
 
@@ -175,4 +177,6 @@ git commit -m "[kit] Add openclaw-multiagency kit"
 1. Verify the workspace: `bash kit/skills/multiagency-kit-guide/scripts/check-setup.sh`
 2. Restart OpenClaw: `openclaw gateway restart`
 3. Verify agent loads: `openclaw status`
-4. Set up Telegram (if not done): `kit/skills/multiagency-telegram-setup/scripts/setup-telegram-agent.sh`
+4. Set up channels (if not done):
+   - Telegram: `kit/skills/multiagency-telegram-setup/scripts/setup-telegram-agent.sh`
+   - Discord: `kit/skills/multiagency-discord-setup/scripts/setup-discord-agent.sh`

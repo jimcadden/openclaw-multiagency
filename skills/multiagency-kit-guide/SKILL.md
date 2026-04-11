@@ -64,7 +64,7 @@ cd <workspace>
 ./kit/skills/multiagency-add-agent/scripts/add-agent.sh my-new-agent
 ```
 
-This handles template copy, config update, optional Telegram setup, and git commit.
+This handles template copy, config update, optional Telegram/Discord setup, and git commit.
 
 ### Option 2: Copy Template (Manual)
 
@@ -79,6 +79,7 @@ cd my-new-agent
 # Add symlinks through shared/
 ln -s ../shared/skills/multiagency-state-manager multiagency-state-manager
 ln -s ../shared/skills/multiagency-telegram-setup multiagency-telegram-setup
+ln -s ../shared/skills/multiagency-discord-setup multiagency-discord-setup
 ln -s ../shared/skills/multiagency-kit-guide multiagency-kit-guide
 ```
 
@@ -148,9 +149,10 @@ cd <workspace>/<agent-name>
 ls -la multiagency-*  # Check if symlinks resolve
 
 # If broken, recreate (routes through shared/):
-rm -f multiagency-state-manager multiagency-telegram-setup multiagency-kit-guide
+rm -f multiagency-state-manager multiagency-telegram-setup multiagency-discord-setup multiagency-kit-guide
 ln -s ../shared/skills/multiagency-state-manager multiagency-state-manager
 ln -s ../shared/skills/multiagency-telegram-setup multiagency-telegram-setup
+ln -s ../shared/skills/multiagency-discord-setup multiagency-discord-setup
 ln -s ../shared/skills/multiagency-kit-guide multiagency-kit-guide
 ```
 
@@ -218,11 +220,13 @@ git push origin <version>
 │   │   ├── multiagency-bootstrap/
 │   │   ├── multiagency-state-manager/
 │   │   ├── multiagency-telegram-setup/
+│   │   ├── multiagency-discord-setup/
 │   │   └── multiagency-kit-guide/  # ← You are here
 │   └── workspace-template/
 ├── shared/skills/                 # SYMLINKS to kit (single source of truth)
 │   ├── multiagency-state-manager  -> ../../kit/skills/multiagency-state-manager
 │   ├── multiagency-telegram-setup -> ../../kit/skills/multiagency-telegram-setup
+│   ├── multiagency-discord-setup  -> ../../kit/skills/multiagency-discord-setup
 │   └── multiagency-kit-guide      -> ../../kit/skills/multiagency-kit-guide
 └── <agent-name>/                  # YOUR AGENT
     ├── IDENTITY.md                # ← Edit this
@@ -230,6 +234,7 @@ git push origin <version>
     ├── MEMORY.md                  # ← Edit this
     ├── multiagency-state-manager  -> ../shared/skills/multiagency-state-manager
     ├── multiagency-telegram-setup -> ../shared/skills/multiagency-telegram-setup
+    ├── multiagency-discord-setup  -> ../shared/skills/multiagency-discord-setup
     └── multiagency-kit-guide      -> ../shared/skills/multiagency-kit-guide
 ```
 

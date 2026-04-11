@@ -18,11 +18,13 @@ Thread memory files solve both problems. At the start of each thread session, th
 ```
 threads/
   README.md                                                         ← you are here
-  agent-main-telegram-mybot-group-1001234567890-topic-123/
+  agent-main-telegram-mybot-group-1001234567890-topic-123/          ← Telegram forum topic
     MEMORY.md                                                       ← thread long-term memory
     memory/
       YYYY-MM-DD.md                                                 ← daily session notes (optional)
   agent-main-telegram-mybot-group-1001234567890-topic-456/
+    MEMORY.md
+  agent-main-discord-channel-1489699841322909786/                                ← Discord channel/thread
     MEMORY.md
 ```
 
@@ -30,10 +32,18 @@ threads/
 
 The folder name is the **sanitized session key** from the system prompt:
 
+**Telegram forum topic:**
 ```
 SESSION_KEY: agent:main:telegram:mybot:group:-1001234567890:topic:123
           ↓  replace : with -, strip leading - from chat ID
 folder: agent-main-telegram-mybot-group-1001234567890-topic-123
+```
+
+**Discord channel/thread:**
+```
+SESSION_KEY: agent:main:discord:channel:1489699841322909786
+          ↓  replace : with -
+folder: agent-main-discord-channel-1489699841322909786
 ```
 
 This makes the mapping from session → memory file completely deterministic.
@@ -46,10 +56,10 @@ When creating a new thread folder, use this template for its `MEMORY.md`:
 # Thread: {Topic Name}
 
 ## Session Key
-{Full session key — e.g., agent:main:telegram:mybot:group:-1001234567890:topic:123}
+{Full session key — e.g., agent:main:telegram:mybot:group:-1001234567890:topic:123 or agent:main:discord:channel:1489699841322909786}
 
 ## Topic
-{The Telegram topic name as it appears in the chat}
+{The topic/thread name as it appears in the chat}
 
 ## Purpose
 {What this thread is for — the ongoing subject of this conversation}

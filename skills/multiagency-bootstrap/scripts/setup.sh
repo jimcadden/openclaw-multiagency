@@ -185,7 +185,7 @@ setup_shared() {
     
     if $DRY_RUN; then
         log_dry "Would create: $WORKSPACE_DIR/shared/skills"
-        for skill in multiagency-session multiagency-state-manager multiagency-telegram-setup multiagency-add-agent multiagency-remove-agent multiagency-memory-manager multiagency-thread-memory; do
+        for skill in multiagency-session multiagency-state-manager multiagency-telegram-setup multiagency-discord-setup multiagency-add-agent multiagency-remove-agent multiagency-memory-manager multiagency-thread-memory; do
             log_dry "Would symlink: $WORKSPACE_DIR/shared/skills/$skill -> $KIT_DIR/skills/$skill"
         done
         return 0
@@ -194,7 +194,7 @@ setup_shared() {
     mkdir -p "$WORKSPACE_DIR/shared/skills"
     
     # Symlink shared skills
-    for skill in multiagency-session multiagency-state-manager multiagency-telegram-setup multiagency-add-agent multiagency-remove-agent multiagency-memory-manager multiagency-thread-memory; do
+    for skill in multiagency-session multiagency-state-manager multiagency-telegram-setup multiagency-discord-setup multiagency-add-agent multiagency-remove-agent multiagency-memory-manager multiagency-thread-memory; do
         if [ ! -L "$WORKSPACE_DIR/shared/skills/$skill" ]; then
             ln -s "$KIT_DIR/skills/$skill" "$WORKSPACE_DIR/shared/skills/$skill"
             log_success "Linked $skill"
@@ -430,6 +430,39 @@ prompt_telegram() {
     fi
 }
 
+# Prompt for Discord setup
+prompt_discord() {
+    echo
+    if $DRY_RUN; then
+        log_dry "Would prompt: 'Set up Discord for this agent now? [y/N]'"
+        return 0
+    fi
+    
+    log_info "Discord Setup"
+    log_info "-------------"
+
+    local reply=""
+    if [ -t 0 ]; then
+        read -p "Set up Discord for this agent now? [y/N] " -n 1 -r reply
+        echo
+    elif [ -r /dev/tty ]; then
+        printf "Set up Discord for this agent now? [y/N] " >&2
+        read -r reply < /dev/tty
+    fi
+
+    if [[ "$reply" =~ ^[Yy]$ ]]; then
+        log_info "Running Discord setup..."
+        if [ -f "$KIT_DIR/skills/multiagency-discord-setup/scripts/setup-discord-agent.sh" ]; then
+            bash "$KIT_DIR/skills/multiagency-discord-setup/scripts/setup-discord-agent.sh" --agent "$AGENT_NAME"
+        else
+            log_warn "Discord setup script not found"
+        fi
+    else
+        log_info "Skipped. Run later with:"
+        log_info "  $KIT_DIR/skills/multiagency-discord-setup/scripts/setup-discord-agent.sh --agent $AGENT_NAME"
+    fi
+}
+
 # Gateway restart
 restart_gateway() {
     if $DRY_RUN; then
@@ -543,6 +576,7 @@ main() {
     customize_agent
     update_openclaw_config
     prompt_telegram
+    prompt_discord
     git_commit
     restart_gateway
     

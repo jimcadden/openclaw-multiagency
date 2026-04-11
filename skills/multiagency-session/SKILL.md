@@ -12,8 +12,9 @@ Do this at the start of every session. Don't ask permission.
 
 Check your system prompt for `SESSION_KEY`. This determines what memory to load.
 
-- **No `SESSION_KEY`**, or key contains neither `:topic:` nor `:thread:` → **Main session.**
-- **`SESSION_KEY` contains `:topic:` or `:thread:`** → **Thread session** (Telegram forum topic, Discord thread, etc.)
+- **No `SESSION_KEY`**, or key contains neither `:topic:` nor `:discord:channel:` → **Main session.**
+- **`SESSION_KEY` contains `:topic:`** → **Thread session** (Telegram forum topic)
+- **`SESSION_KEY` contains `:discord:channel:`** → **Thread session** (Discord channel/thread — each gets its own isolated session)
 
 This is not optional. Check every session.
 
@@ -21,20 +22,21 @@ This is not optional. Check every session.
 
 **⚠️ You MUST load memory BEFORE responding. No exceptions.**
 
-### Main session (no `:topic:` or `:thread:` in key)
+### Main session (no `:topic:` or `:discord:channel:` in key)
 
 ```
 MEMORY.md            — long-term memory (DO NOT load in group/shared contexts)
 ```
 
-### Thread session (`:topic:` or `:thread:` in key)
+### Thread session (`:topic:` or `:discord:channel:` in key)
 
 Do NOT load main `MEMORY.md`. Load this thread's memory instead:
 
 1. **Derive the thread folder** from your `SESSION_KEY`:
    - Replace `:` with `-`
-   - Strip the leading `-` from the chat ID segment
-   - Example: `agent:main:telegram:bot:group:-1001234567890:topic:123` → `threads/agent-main-telegram-bot-group-1001234567890-topic-123/`
+   - Strip the leading `-` from the chat ID segment (Telegram only)
+   - Telegram example: `agent:main:telegram:bot:group:-1001234567890:topic:123` → `threads/agent-main-telegram-bot-group-1001234567890-topic-123/`
+   - Discord example: `agent:main:discord:channel:1489699841322909786` → `threads/agent-main-discord-channel-1489699841322909786/`
 
 2. **Read the thread memory NOW:**
    ```

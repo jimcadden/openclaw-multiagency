@@ -243,6 +243,22 @@ setup_telegram() {
     fi
 }
 
+setup_discord() {
+    log_step "Discord Setup"
+
+    if ! confirm "Set up a Discord bot for $AGENT_NAME?" "n"; then
+        log_info "Skipping. Run later with the multiagency-discord-setup skill."
+        return 0
+    fi
+
+    local discord_script="$KIT_DIR/skills/multiagency-discord-setup/scripts/setup-discord-agent.sh"
+    if [ -f "$discord_script" ]; then
+        bash "$discord_script" --agent "$AGENT_NAME"
+    else
+        log_warn "Discord setup script not found at $discord_script"
+    fi
+}
+
 git_commit() {
     log_step "Committing Changes"
 
@@ -279,6 +295,7 @@ main() {
     customize_agent
     update_config
     setup_telegram
+    setup_discord
     git_commit
 
     echo

@@ -37,4 +37,4 @@ Changes to skills, workspace-template, or scripts can break other parts of the k
 
 1. **Run tests** — `bash scripts/test-install.sh` covers install.sh and migrate.sh. Run after every script change.
 2. **Gateway restart** — If the change affects `openclaw.json` (extraDirs, agents.list, bindings), ensure the script restarts the gateway or prominently warns the user.
-3. **setup-telegram-agent.sh** — Uses `WORKSPACE_DIR` env var or infers from script location. If the directory structure changes, verify its path detection still works.
+3. **setup-telegram-agent.sh** / **setup-discord-agent.sh** — Both use `WORKSPACE_DIR` env var or infer from script location. If the directory structure changes, verify their path detection still works.
