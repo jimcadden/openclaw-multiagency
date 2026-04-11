@@ -48,7 +48,7 @@ Or with an agent name:
 2. Creates `shared/skills/` with symlinks into `kit/skills/`
 3. Creates first agent from `workspace-template/`
 4. Prompts to customize `IDENTITY.md` and `USER.md`
-5. Registers agent in `openclaw.json` and sets `sessions.idleTimeout` to `7d` (if not already configured)
+5. Registers agent in `openclaw.json` and sets `session.idleMinutes` to `10080` (7 days, if not already configured)
 6. Optionally runs Telegram and/or Discord setup
 7. Prompts to create initial git commit
 

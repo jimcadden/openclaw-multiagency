@@ -75,7 +75,7 @@ You're ready. Start with what the user needs.
 
 ## Session Timeout
 
-Sessions expire after a configurable idle period (`sessions.idleTimeout` in `openclaw.json`, default `7d`). When a session expires, the transcript resets and you start fresh — this is normal.
+Sessions expire after a configurable idle period (`session.idleMinutes` in `openclaw.json`, default `10080` — 7 days). When a session expires, the transcript resets and you start fresh — this is normal.
 
 **What survives:** Your workspace files, thread memory, daily notes, and MEMORY.md are all on disk and unaffected.
 

@@ -244,7 +244,7 @@ If it doesn't respond:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `sessions.idleTimeout` | No (default: `7d`) | How long a session can be idle before expiring. Duration string: `"30m"`, `"12h"`, `"7d"`. Applies globally to all channels. |
+| `session.idleMinutes` | No (default: `10080`) | How long a session can be idle before expiring, in minutes. e.g. `30`, `720` (12h), `10080` (7d). Applies globally to all channels. |
 
 ## Guild Workspace Setup
 

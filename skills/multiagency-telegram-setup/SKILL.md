@@ -265,7 +265,7 @@ If it doesn't respond:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `sessions.idleTimeout` | No (default: `7d`) | How long a session can be idle before expiring. Duration string: `"30m"`, `"12h"`, `"7d"`. Applies globally to all channels. |
+| `session.idleMinutes` | No (default: `10080`) | How long a session can be idle before expiring, in minutes. e.g. `30`, `720` (12h), `10080` (7d). Applies globally to all channels. |
 
 ## Forum Groups (Threads)
 
@@ -374,15 +374,15 @@ Without explicit configuration, sessions may expire in as little as 24 hours of 
 
 ### Configuration
 
-The multiagency kit sets a generous default of `7d` (7 days) during setup. You can adjust it in `openclaw.json`:
+The multiagency kit sets a generous default of `10080` (7 days) during setup. You can adjust it in `openclaw.json`:
 
 ```json
-"sessions": {
-  "idleTimeout": "7d"
+"session": {
+  "idleMinutes": 10080
 }
 ```
 
-Supported duration formats: `"30m"`, `"12h"`, `"7d"`. This is a global setting — it applies to all sessions across all channels (Telegram DMs, groups, forum topics, Discord channels, Discord threads).
+The value is an integer number of minutes. e.g. `30` (30 min), `720` (12 h), `10080` (7 d). This is a global setting — it applies to all sessions across all channels (Telegram DMs, groups, forum topics, Discord channels, Discord threads).
 
 ### Why Thread Memory Matters
 

@@ -7,7 +7,7 @@ This directory holds long-term memory for persistent thread sessions — Telegra
 Channels like Telegram forum supergroups and Discord servers can have multiple concurrent threads — one about hobbies, one about health, one about a project, etc. Each thread gets its own unique session key in OpenClaw, with its own JSONL transcript. But transcripts have two limits:
 
 1. **Context window** — old messages eventually fall off as the transcript grows
-2. **Session timeout** — after a period of inactivity (configured via `sessions.idleTimeout` in `openclaw.json`, default `7d`), the session expires and the transcript resets entirely
+2. **Session timeout** — after a period of inactivity (configured via `session.idleMinutes` in `openclaw.json`, default `10080` — 7 days), the session expires and the transcript resets entirely
 
 Thread memory files solve both problems. At the start of each thread session, the agent's system prompt includes its session key. The agent uses that key directly to find and load its thread memory — no guessing, no fuzzy matching. Even if the session expired overnight or over a weekend, the agent reloads its thread memory and picks up where it left off.
 
@@ -92,7 +92,7 @@ When creating a new thread folder, use this template for its `MEMORY.md`:
 
 ## Session Timeout
 
-OpenClaw sessions expire after a configurable idle period. The multiagency kit defaults to `7d` (7 days), set via `sessions.idleTimeout` in `openclaw.json`. When a session expires:
+OpenClaw sessions expire after a configurable idle period. The multiagency kit defaults to `10080` minutes (7 days), set via `session.idleMinutes` in `openclaw.json`. When a session expires:
 
 - The JSONL transcript resets — the agent has no conversational history
 - Thread memory files in this directory are **not affected** — they persist on disk
@@ -104,8 +104,8 @@ To check or change the timeout:
 
 ```json
 // ~/.openclaw/openclaw.json
-"sessions": {
-  "idleTimeout": "7d"
+"session": {
+  "idleMinutes": 10080
 }
 ```
 

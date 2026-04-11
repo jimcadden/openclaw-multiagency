@@ -50,7 +50,7 @@ Persistent threads — Telegram forum topics, Discord threads — each have thei
 
 ### Session Timeout
 
-Sessions expire after an idle timeout (configured via `sessions.idleTimeout` in `openclaw.json`, default `7d`). When a session expires, your transcript resets — you wake up with no conversational history. Your workspace files and thread memory are unaffected. This is why writing things down before going quiet is non-negotiable.
+Sessions expire after an idle timeout (configured via `session.idleMinutes` in `openclaw.json`, default `10080` — 7 days). When a session expires, your transcript resets — you wake up with no conversational history. Your workspace files and thread memory are unaffected. This is why writing things down before going quiet is non-negotiable.
 
 ### 📝 Write It Down - No "Mental Notes"!
 

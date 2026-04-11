@@ -354,10 +354,10 @@ try:
         print(f"Binding already exists for {agent_id} <-> {account_id}")
 
     # Ensure session idle timeout is configured
-    sessions = config.setdefault("sessions", {})
-    if "idleTimeout" not in sessions:
-        sessions["idleTimeout"] = "7d"
-        print("Set sessions.idleTimeout to '7d' (default)")
+    session = config.setdefault("session", {})
+    if "idleMinutes" not in session:
+        session["idleMinutes"] = 10080
+        print("Set session.idleMinutes to 10080 (7 days, default)")
 
     with open(config_file, "w") as f:
         json.dump(config, f, indent=2)

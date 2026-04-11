@@ -8,7 +8,7 @@ user-invocable: false
 
 You are in a persistent thread session (Telegram forum topic, Discord channel/thread, or similar). Each thread is a separate long-running conversation with its own persistent memory. Follow this protocol now.
 
-> **Why this matters:** Sessions expire after an idle timeout (`sessions.idleTimeout` in `openclaw.json`, default `7d`). When that happens, your transcript resets and you lose all conversational context. Thread memory is the bridge — it survives session expiry and lets you pick up where you left off.
+> **Why this matters:** Sessions expire after an idle timeout (`session.idleMinutes` in `openclaw.json`, default `10080` — 7 days). When that happens, your transcript resets and you lose all conversational context. Thread memory is the bridge — it survives session expiry and lets you pick up where you left off.
 
 ## Step 1 — Derive Your Thread Folder
 
@@ -99,4 +99,4 @@ Commit the new folder before continuing.
 - **Persistent threads only.** Telegram forum topics (`:topic:` in session key) and Discord channels/threads (`:discord:channel:` in session key) get their own memory. Regular Telegram groups without topics share one session and have no thread memory.
 - **Don't cross-contaminate.** Thread memory is thread-specific. Never load another thread's memory or your main `MEMORY.md` here.
 - **Session key is stable.** Thread IDs don't change, so the folder name is permanent.
-- **Sessions expire.** After `sessions.idleTimeout` (default `7d`) of inactivity, OpenClaw resets the transcript. Your thread memory files on disk are unaffected — always update them before going quiet so you can recover on the next session.
+- **Sessions expire.** After `session.idleMinutes` (default `10080` — 7 days) of inactivity, OpenClaw resets the transcript. Your thread memory files on disk are unaffected — always update them before going quiet so you can recover on the next session.
