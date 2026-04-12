@@ -7,8 +7,9 @@
 # Walks through:
 #   1. Selecting or creating an agent
 #   2. Creating a Telegram bot via BotFather
-#   3. Configuring the Telegram account and binding in openclaw.json
-#   4. Optionally creating the agent workspace from template
+#   3. Storing the bot token via the active secrets provider (env/file/exec)
+#   4. Configuring the Telegram account and binding in openclaw.json
+#   5. Optionally creating the agent workspace from template
 
 set -e
 
@@ -64,7 +65,6 @@ confirm() {
 
 # ─── Path detection ───────────────────────────────────────────────────────────
 
-# Script lives at: <workspace>/kit/skills/multiagency-telegram-setup/scripts/
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTO_WORKSPACE="$(dirname "$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")")"
 
@@ -80,6 +80,17 @@ OPENCLAW_DIR="${OPENCLAW_DIR:-$HOME/.openclaw}"
 CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 KIT_DIR="${KIT_DIR:-$WORKSPACE_DIR/kit}"
 AGENT_ID=""
+
+# ─── Source secrets helper ───────────────────────────────────────────────────
+
+SECRETS_HELPER="$KIT_DIR/scripts/lib/secrets-helper.sh"
+if [ -f "$SECRETS_HELPER" ]; then
+    # shellcheck source=scripts/lib/secrets-helper.sh
+    source "$SECRETS_HELPER"
+else
+    log_warn "secrets-helper.sh not found at $SECRETS_HELPER"
+    log_warn "Token will need to be stored manually."
+fi
 
 # ─── Args ─────────────────────────────────────────────────────────────────────
 
@@ -122,6 +133,14 @@ if [ -d "$KIT_DIR/workspace-template" ]; then
     log_info "Multi-agent workspace: $WORKSPACE_DIR"
 else
     log_warn "workspace-template not found — workspace creation will be skipped"
+fi
+
+# ─── Detect secrets provider ─────────────────────────────────────────────────
+
+SECRETS_PROVIDER="env"
+if type detect_secrets_provider &>/dev/null; then
+    SECRETS_PROVIDER=$(detect_secrets_provider)
+    log_info "Secrets provider: $SECRETS_PROVIDER"
 fi
 
 # ─── Step 1: Select or specify agent ─────────────────────────────────────────
@@ -244,6 +263,14 @@ log_info "  pairing   — route based on bindings (recommended)"
 log_info "  allowlist — only allowFrom users can DM"
 DM_POLICY=$(read_tty "DM policy [pairing]: " "pairing")
 
+# Per-agent env var naming convention
+AGENT_UPPER=$(echo "$AGENT_ID" | tr '[:lower:]-' '[:upper:]_')
+DEFAULT_ENV_VAR="TELEGRAM_BOT_TOKEN_${AGENT_UPPER}"
+echo
+log_info "The bot token will be stored via the '$SECRETS_PROVIDER' secrets provider."
+log_info "SecretRef ID (env var name for env provider):"
+TOKEN_ENV_VAR=$(read_tty "Env var name [$DEFAULT_ENV_VAR]: " "$DEFAULT_ENV_VAR")
+
 # ─── Step 4: Preview ─────────────────────────────────────────────────────────
 
 log_step "Configuration Preview"
@@ -260,7 +287,7 @@ log_info "Will add to channels.telegram.accounts:"
 echo "  \"$ACCOUNT_ID\": {"
 echo "    enabled: true"
 echo "    dmPolicy: \"$DM_POLICY\""
-echo "    botToken: \"${BOT_TOKEN:0:10}...\""
+echo "    botToken: { source: \"env\", provider: \"default\", id: \"$TOKEN_ENV_VAR\" }"
 [ -n "$ALLOW_FROM" ] && echo "    allowFrom: [$ALLOW_FROM]"
 echo "    groupPolicy: \"allowlist\""
 echo "    streaming: \"partial\""
@@ -275,18 +302,47 @@ if ! confirm "Write this to openclaw.json?" "y"; then
     exit 0
 fi
 
-# ─── Step 5: Write config ────────────────────────────────────────────────────
+# ─── Step 5: Store token via secrets provider ─────────────────────────────────
+
+log_step "Storing Bot Token"
+
+TOKEN_STORED=true
+if type persist_secret_value &>/dev/null; then
+    if ! persist_secret_value "$SECRETS_PROVIDER" "$TOKEN_ENV_VAR" "$BOT_TOKEN"; then
+        TOKEN_STORED=false
+        log_warn "Token not auto-stored. You must store it manually before starting the gateway."
+    fi
+else
+    log_warn "secrets-helper not loaded — store the token manually"
+    TOKEN_STORED=false
+fi
+
+# ─── Step 6: Write config ────────────────────────────────────────────────────
 
 log_step "Updating openclaw.json"
 
-python3 - "$CONFIG_FILE" "$AGENT_ID" "$WORKSPACE_PATH" "$ACCOUNT_ID" "$BOT_TOKEN" "$ALLOW_FROM" "$DM_POLICY" "$AGENT_EXISTS_IN_CONFIG" << 'PYEOF'
+# Write SecretRef for the bot token
+if type write_secret_ref &>/dev/null; then
+    write_secret_ref "channels.telegram.accounts.${ACCOUNT_ID}.botToken" "default" "env" "$TOKEN_ENV_VAR" || true
+fi
+
+# Use openclaw config set for simple key-value writes
+if command -v openclaw &>/dev/null; then
+    openclaw config set "channels.telegram.accounts.${ACCOUNT_ID}.enabled" true --strict-json 2>/dev/null || true
+    openclaw config set "channels.telegram.accounts.${ACCOUNT_ID}.dmPolicy" "$DM_POLICY" 2>/dev/null || true
+    openclaw config set "channels.telegram.accounts.${ACCOUNT_ID}.groupPolicy" "allowlist" 2>/dev/null || true
+    openclaw config set "channels.telegram.accounts.${ACCOUNT_ID}.streaming" "partial" 2>/dev/null || true
+fi
+
+# Python for agent list + bindings + allowFrom (array operations)
+python3 - "$CONFIG_FILE" "$AGENT_ID" "$WORKSPACE_PATH" "$ACCOUNT_ID" "$TOKEN_ENV_VAR" "$ALLOW_FROM" "$DM_POLICY" "$AGENT_EXISTS_IN_CONFIG" << 'PYEOF'
 import json, sys
 
 config_file = sys.argv[1]
 agent_id = sys.argv[2]
 workspace = sys.argv[3]
 account_id = sys.argv[4]
-bot_token = sys.argv[5]
+token_env_var = sys.argv[5]
 allow_from_str = sys.argv[6] if len(sys.argv) > 6 else ""
 dm_policy = sys.argv[7] if len(sys.argv) > 7 else "pairing"
 agent_exists = sys.argv[8] == "true" if len(sys.argv) > 8 else False
@@ -308,16 +364,18 @@ try:
     telegram = config.setdefault("channels", {}).setdefault("telegram", {})
     accounts = telegram.setdefault("accounts", {})
 
-    if account_id in accounts:
-        print(f"Warning: account '{account_id}' already exists — overwriting")
-
-    acct = {
-        "enabled": True,
-        "dmPolicy": dm_policy,
-        "botToken": bot_token,
-        "groupPolicy": "allowlist",
-        "streaming": "partial"
-    }
+    acct = accounts.setdefault(account_id, {})
+    acct["enabled"] = True
+    acct["dmPolicy"] = dm_policy
+    # SecretRef for botToken (never plaintext)
+    if "botToken" not in acct or not isinstance(acct.get("botToken"), dict):
+        acct["botToken"] = {
+            "source": "env",
+            "provider": "default",
+            "id": token_env_var
+        }
+    acct["groupPolicy"] = "allowlist"
+    acct["streaming"] = "partial"
 
     if allow_from_str.strip():
         allow_from = []
@@ -331,7 +389,6 @@ try:
         if allow_from:
             acct["allowFrom"] = allow_from
 
-    accounts[account_id] = acct
     print(f"Added Telegram account '{account_id}'")
 
     bindings = config.setdefault("bindings", [])
@@ -353,7 +410,6 @@ try:
     else:
         print(f"Binding already exists for {agent_id} <-> {account_id}")
 
-    # Ensure session idle timeout is configured
     session = config.setdefault("session", {})
     if "idleMinutes" not in session:
         session["idleMinutes"] = 10080
@@ -369,7 +425,14 @@ PYEOF
 
 log_success "openclaw.json updated"
 
-# ─── Step 6: Create workspace ────────────────────────────────────────────────
+# ─── Step 7: Validate SecretRef ───────────────────────────────────────────────
+
+if type validate_secret_ref &>/dev/null && $TOKEN_STORED; then
+    log_step "Validating SecretRef"
+    validate_secret_ref "channels.telegram.accounts.${ACCOUNT_ID}.botToken" "default" "env" "$TOKEN_ENV_VAR" || true
+fi
+
+# ─── Step 8: Create workspace ────────────────────────────────────────────────
 
 if [ -d "$WORKSPACE_PATH" ]; then
     log_info "Workspace already exists: $WORKSPACE_PATH"
@@ -397,9 +460,17 @@ echo "╔═══════════════════════�
 echo "║  Telegram Setup Complete                               ║"
 echo "╠════════════════════════════════════════════════════════╣"
 echo "║                                                        ║"
+if $TOKEN_STORED; then
+echo "║  Token stored via $SECRETS_PROVIDER provider.                       "
+else
+echo "║  ⚠  Token NOT stored — add it to your secrets backend ║"
+echo "║     Env var name: $TOKEN_ENV_VAR"
+fi
+echo "║                                                        ║"
 echo "║  Next steps:                                           ║"
-echo "║    1. Message your bot on Telegram: /start             ║"
-echo "║    2. Restart: openclaw gateway restart                ║"
+echo "║    1. openclaw secrets audit --check                   ║"
+echo "║    2. openclaw gateway restart                         ║"
+echo "║    3. Message your bot on Telegram: /start             ║"
 echo "║                                                        ║"
 echo "╚════════════════════════════════════════════════════════╝"
 echo

@@ -45,11 +45,12 @@ Run the interactive setup:
 ```
 
 This will:
-1. Copy `workspace.template` to create your agent
-2. Generate config snippets for `openclaw.json`
-3. Auto-detect your sender ID from existing Telegram accounts in the config
-4. Guide you through Telegram bot creation
-5. Remind you to commit the new workspace to git
+1. Select or create an agent
+2. Guide you through Telegram bot creation via BotFather
+3. **Store the bot token via the active secrets provider** (env/file/exec — never plaintext in config)
+4. Configure the Telegram account and binding in `openclaw.json`
+5. Auto-detect your sender ID from existing Telegram accounts in the config
+6. Optionally create the agent workspace from template
 
 ## Add Telegram Group
 
@@ -90,24 +91,32 @@ If the bot misses messages, disable privacy mode in BotFather (`/setprivacy` -> 
    - **Username**: Must end in `bot` (e.g., `my_research_bot`)
 4. BotFather returns a token: `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`
 
-**📝 Save this token** — you'll add it to the config.
+**Save this token** — you'll store it via the secrets provider.
 
-### Step 2: Plan Your Agent
+### Step 2: Store Bot Token via SecretRef
 
-Decide on these values:
+Bot tokens are **never stored as plaintext** in `openclaw.json`. They are stored via the active secrets provider and referenced by a SecretRef object.
 
-| Value | Example | Notes |
-|-------|---------|-------|
-| `agentId` | `research` | Lowercase, hyphens OK |
-| `agentName` | `research` | Display name (optional) |
-| `workspace` | `<workspace>/research` | Agent's workspace directory |
-| `agentDir` | `<openclaw-dir>/agents/research` | Agent configuration directory |
-| `accountId` | `research_bot` | Telegram account identifier |
-| `model` | _(your preferred model)_ | Primary model for this agent |
+The setup script handles this automatically. For manual setup:
+
+```bash
+# For env provider (default): store in ~/.openclaw/.env
+echo 'export TELEGRAM_BOT_TOKEN_DEV="123456789:ABCdef..."' >> ~/.openclaw/.env
+chmod 600 ~/.openclaw/.env
+
+# Write the SecretRef to config
+openclaw config set channels.telegram.accounts.dev_bot.botToken \
+  --ref-provider default --ref-source env --ref-id TELEGRAM_BOT_TOKEN_DEV
+
+# Validate
+openclaw secrets audit --check
+```
+
+For other providers (file, exec/vault), see [Secrets Management](https://github.com/openclaw/openclaw/blob/main/docs/gateway/secrets.md).
 
 ### Step 3: Edit openclaw.json
 
-Open `~/.openclaw/openclaw.json` and add three sections:
+The resulting config uses SecretRef for botToken:
 
 #### 3a. Add Agent to `agents.list`
 
@@ -119,9 +128,7 @@ Open `~/.openclaw/openclaw.json` and add three sections:
     },
     {
       "id": "research",
-      "name": "research",
-      "workspace": "<workspace>/research",
-      "agentDir": "<openclaw-dir>/agents/research"
+      "workspace": "<workspace>/research"
     }
   ]
 }
@@ -129,24 +136,21 @@ Open `~/.openclaw/openclaw.json` and add three sections:
 
 #### 3b. Add Telegram Account to `channels.telegram.accounts`
 
-> **Tip — reuse your existing sender ID:** If you already have a Telegram account configured (e.g., `default`), check its `allowFrom` array for your user ID and reuse the same value. This ensures the new bot only accepts DMs from you (1-to-1 pairing). If you don't have one yet, message `@userinfobot` on Telegram to get your numeric user ID.
+> **Tip — reuse your existing sender ID:** If you already have a Telegram account configured (e.g., `default`), check its `allowFrom` array for your user ID and reuse the same value.
 
 ```json
 "channels": {
   "telegram": {
     "accounts": {
-      "default": {
-        "dmPolicy": "allowlist",
-        "botToken": "<your-main-bot-token>",
-        "allowFrom": [<your-telegram-user-id>],
-        "groupPolicy": "allowlist",
-        "streaming": "off"
-      },
       "research_bot": {
         "enabled": true,
         "dmPolicy": "pairing",
-        "botToken": "<your-research-bot-token>",
-        "allowFrom": [<your-telegram-user-id>],
+        "botToken": {
+          "source": "env",
+          "provider": "default",
+          "id": "TELEGRAM_BOT_TOKEN_RESEARCH"
+        },
+        "allowFrom": [123456789],
         "groupPolicy": "allowlist",
         "streaming": "partial"
       }
@@ -158,8 +162,8 @@ Open `~/.openclaw/openclaw.json` and add three sections:
 **Key fields:**
 - `enabled`: `true` to activate this account
 - `dmPolicy`: `pairing` routes based on bindings, `allowlist` uses `allowFrom`
-- `botToken`: From BotFather
-- `allowFrom`: Array of Telegram user IDs allowed to message this bot. **Check existing accounts in your config for a sender ID to reuse.**
+- `botToken`: SecretRef to bot token — **never a plaintext string**
+- `allowFrom`: Array of Telegram user IDs allowed to message this bot
 - `streaming`: `off`, `partial`, or `full`
 
 #### 3c. Add Binding
@@ -176,8 +180,6 @@ Open `~/.openclaw/openclaw.json` and add three sections:
 ]
 ```
 
-This routes messages from the `research_bot` Telegram account to the `research` agent.
-
 ### Step 4: Create Workspace
 
 Use `add-agent.sh` to create the workspace from the kit template (recommended):
@@ -187,60 +189,24 @@ cd <workspace>
 ./kit/scripts/add-agent.sh your-agent-name
 ```
 
-Or manually:
+### Step 5: Restart and Verify
 
 ```bash
-cd <workspace>
-cp -r kit/workspace-template your-agent-name
-```
-
-The workspace holds the agent's files (IDENTITY.md, MEMORY.md, SOUL.md, etc.).
-
-### Step 5: Add to Git
-
-Commit the new workspace to version control:
-
-```bash
-cd <workspace>
-git add your-agent-name/
-git commit -m "[main] Add your-agent-name agent workspace"
-git push origin main
-```
-
-### Step 6: Restart Gateway
-
-```bash
+openclaw secrets audit --check
 openclaw gateway restart
 ```
-
-Or use the gateway tool in your session:
-
-```
-gateway action=restart
-```
-
-### Step 7: Verify
 
 1. Open Telegram and find your new bot
 2. Send `/start`
 3. The agent should respond
 
 If it doesn't respond:
-- Check gateway logs for errors
-- Verify bot token is correct
+- Check gateway logs: `openclaw logs --follow`
+- Verify SecretRef resolves: `openclaw secrets audit --check`
 - Confirm your user ID is in `allowFrom`
 - Check the binding matches `agentId` and `accountId`
 
 ## Configuration Reference
-
-### Agent Fields
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `id` | Yes | Unique agent identifier |
-| `name` | No | Display name |
-| `workspace` | No | Defaults to main workspace if omitted |
-| `agentDir` | No | Agent-specific config directory |
 
 ### Telegram Account Fields
 
@@ -248,7 +214,7 @@ If it doesn't respond:
 |-------|----------|-------------|
 | `enabled` | No (default: true) | Enable/disable this account |
 | `dmPolicy` | No (default: pairing) | `pairing` or `allowlist` |
-| `botToken` | Yes | From BotFather |
+| `botToken` | Yes | SecretRef: `{ source: "env", provider: "default", id: "ENV_VAR" }` |
 | `allowFrom` | No | Array of allowed Telegram user IDs |
 | `groupPolicy` | No (default: allowlist) | `allowlist` or `denylist` |
 | `streaming` | No (default: off) | `off`, `partial`, or `full` |
@@ -271,71 +237,10 @@ If it doesn't respond:
 
 Telegram **forum supergroups** have multiple topic threads. OpenClaw treats each topic as a separate session automatically — but you need to configure the group to enable thread memory.
 
-> **Important:** This only works with Telegram **forum supergroups** (`is_forum: true`). Regular groups with reply threads do NOT get separate sessions — OpenClaw intentionally ignores `message_thread_id` for non-forum groups, because reply threads in regular groups are not persistent topics. All messages in a regular group share one session key.
->
-> To use topic threads, your Telegram group must have **Topics** enabled: Group Settings → Topics → Enable.
+> **Important:** This only works with Telegram **forum supergroups** (`is_forum: true`). Regular groups with reply threads do NOT get separate sessions.
 
-### How It Works
+### Session Key Format
 
-- Each forum topic gets its own session key and JSONL transcript in OpenClaw
-- The agent workspace's `threads/` directory holds long-term memory per thread
-- On session start, the agent identifies its thread and loads thread-specific memory
-
-### Step 1: Enable the Bot in Your Forum Group
-
-1. Add your bot to the Telegram forum group
-2. Promote it to admin (needed to read messages in topics)
-3. Find your group's chat ID (use `@userinfobot` or check gateway logs)
-
-### Step 2: Add Group to allowGroups in openclaw.json
-
-Add the group to your Telegram account config:
-
-```json
-"channels": {
-  "telegram": {
-    "accounts": {
-      "your_bot": {
-        "enabled": true,
-        "botToken": "<token>",
-        "allowFrom": [<your-user-id>],
-        "groupPolicy": "allowlist",
-        "allowGroups": [-1001234567890],
-        "streaming": "partial",
-        "groups": {
-          "-1001234567890": {
-            "systemPrompt": "You are in a Telegram forum group. Each topic thread is a separate long-running conversation with its own memory."
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-### Step 3: Inject Session Keys via Per-Topic System Prompts
-
-This is the critical step for thread memory. Each topic's system prompt injects its session key so the agent can find its memory folder deterministically — no guessing required:
-
-```json
-"groups": {
-  "-1001234567890": {
-    "systemPrompt": "You are in a Telegram forum group. Each topic thread is a separate long-running conversation with its own memory.",
-    "topics": {
-      "123": {
-        "systemPrompt": "SESSION_KEY: agent:main:telegram:your_bot:group:-1001234567890:topic:123\nTopic: Health & Fitness"
-      },
-      "456": {
-        "systemPrompt": "SESSION_KEY: agent:main:telegram:your_bot:group:-1001234567890:topic:456\nTopic: Home Renovation"
-      }
-    }
-  }
-}
-```
-
-The agent reads `SESSION_KEY` from the system prompt, sanitizes it (`:` → `-`, strip leading `-` from chat ID), and uses it directly as its thread folder path: `threads/{session-key}/MEMORY.md`.
-
-**Session key format:**
 ```
 agent:{agentId}:telegram:{accountId}:group:{chatId}:topic:{topicId}
 ```
@@ -345,54 +250,7 @@ agent:{agentId}:telegram:{accountId}:group:{chatId}:topic:{topicId}
 agent-main-telegram-your_bot-group-1001234567890-topic-123
 ```
 
-### Step 4: Initialize Thread Folders
-
-When the agent first encounters a new thread topic, it creates the thread folder automatically. You can also pre-create them:
-
-```bash
-mkdir -p <workspace>/threads/agent-main-telegram-your_bot-group-1001234567890-topic-123
-# Then create MEMORY.md from the template in threads/README.md
-```
-
-### Finding Group and Topic IDs
-
-**Group chat ID:** Check OpenClaw gateway logs when a message arrives from the group. Look for `chatId` or the peer id in the routing output.
-
-**Topic IDs:** Check gateway logs for `messageThreadId` or `resolvedThreadId` when a message arrives from a specific topic.
-
-**Tip:** Send a test message to each topic and check gateway logs immediately — you'll see the full session key being assigned. Copy it directly into your `openclaw.json` topic config.
-
----
-
-## Session Timeout
-
-OpenClaw assigns each conversation context (DM, group, forum topic, Discord thread) its own session. Sessions expire after a configurable idle period — when that happens, the transcript resets and the agent starts fresh with no memory of the prior conversation.
-
-### Default Behavior
-
-Without explicit configuration, sessions may expire in as little as 24 hours of inactivity. For forum topics and Discord threads that are meant to be long-running conversations, this is too aggressive.
-
-### Configuration
-
-The multiagency kit sets a generous default of `10080` (7 days) during setup. You can adjust it in `openclaw.json`:
-
-```json
-"session": {
-  "idleMinutes": 10080
-}
-```
-
-The value is an integer number of minutes. e.g. `30` (30 min), `720` (12 h), `10080` (7 d). This is a global setting — it applies to all sessions across all channels (Telegram DMs, groups, forum topics, Discord channels, Discord threads).
-
-### Why Thread Memory Matters
-
-Even with a generous timeout, sessions **will** eventually expire. Thread memory (`threads/{session-key}/MEMORY.md`) is the mechanism that bridges session boundaries for long-running conversations. When a session expires and restarts, the agent reloads its thread memory and picks up where it left off.
-
-Without thread memory, session expiry means total amnesia. With it, the agent retains context across any number of session restarts.
-
 See `multiagency-thread-memory` for the full thread memory protocol.
-
----
 
 ## Common Patterns
 
@@ -404,17 +262,11 @@ Route multiple Telegram bots to one agent:
 "bindings": [
   {
     "agentId": "main",
-    "match": {
-      "channel": "telegram",
-      "accountId": "default"
-    }
+    "match": { "channel": "telegram", "accountId": "default" }
   },
   {
     "agentId": "main",
-    "match": {
-      "channel": "telegram",
-      "accountId": "personal_bot"
-    }
+    "match": { "channel": "telegram", "accountId": "personal_bot" }
   }
 ]
 ```
@@ -427,26 +279,28 @@ Each bot routes to a different agent:
 "bindings": [
   {
     "agentId": "research",
-    "match": {
-      "channel": "telegram",
-      "accountId": "research_bot"
-    }
+    "match": { "channel": "telegram", "accountId": "research_bot" }
   },
   {
     "agentId": "assistant",
-    "match": {
-      "channel": "telegram",
-      "accountId": "assistant_bot"
-    }
+    "match": { "channel": "telegram", "accountId": "assistant_bot" }
   }
 ]
 ```
+
+## Security Notes
+
+- **Bot tokens** must be stored via SecretRef — never as plaintext strings in `openclaw.json`
+- The setup script uses the active secrets provider (env, file, or exec) automatically
+- **`openclaw secrets audit --check`** verifies no plaintext residues remain
+- **allowFrom** restricts who can message your bot — use it
+- **groupPolicy: allowlist** prevents bot from joining random groups
 
 ## Troubleshooting
 
 **Bot doesn't respond:**
 - Gateway not restarted after config change
-- Bot token incorrect or expired
+- Bot token SecretRef cannot resolve (run `openclaw secrets audit --check`)
 - User ID not in `allowFrom`
 - Binding doesn't match account ID
 
@@ -454,15 +308,3 @@ Each bot routes to a different agent:
 - Check binding order (first match wins)
 - Verify `accountId` in binding matches Telegram account
 - Check `dmPolicy` setting
-
-**Config validation errors:**
-- JSON syntax (missing commas, quotes)
-- JavaScript-style config needs manual editing
-- Use `gateway action=config.get` to verify current config
-
-## Security Notes
-
-- **Bot tokens** are sensitive — treat like passwords
-- **allowFrom** restricts who can message your bot — use it
-- **groupPolicy: allowlist** prevents bot from joining random groups
-- Don't commit `openclaw.json` with real tokens to version control

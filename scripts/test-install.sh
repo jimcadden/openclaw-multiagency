@@ -902,6 +902,269 @@ if should_run "sync_no_agents"; then
     teardown_env
 fi
 
+# ─── secrets-helper.sh tests ──────────────────────────────────────────────────
+
+SECRETS_HELPER="$REPO_ROOT/scripts/lib/secrets-helper.sh"
+
+section "secrets-helper.sh — env provider persistence"
+
+if should_run "secrets_env_persist"; then
+    setup_env
+    setup_openclaw
+
+    # Source the helper and test persist_secret_value for env provider
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$SECRETS_HELPER"
+        persist_secret_value "env" "TEST_SECRET_KEY" "test-secret-value-123"
+    ) > /dev/null 2>&1
+
+    ENV_FILE="$TMP_OC_DIR/.env"
+    if [ -f "$ENV_FILE" ] && grep -q 'export TEST_SECRET_KEY=' "$ENV_FILE"; then
+        pass "secrets_env_persist: .env file created with secret"
+    else
+        fail "secrets_env_persist: .env file missing or secret not written"
+    fi
+
+    # Verify file permissions (600)
+    if [ -f "$ENV_FILE" ]; then
+        perms=$(stat -f "%Lp" "$ENV_FILE" 2>/dev/null || stat -c "%a" "$ENV_FILE" 2>/dev/null)
+        if [ "$perms" = "600" ]; then
+            pass "secrets_env_persist: .env has mode 600"
+        else
+            fail "secrets_env_persist: .env has mode $perms, expected 600"
+        fi
+    fi
+
+    teardown_env
+fi
+
+if should_run "secrets_env_upsert"; then
+    setup_env
+    setup_openclaw
+
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$SECRETS_HELPER"
+        persist_secret_value "env" "MY_KEY" "value1"
+        persist_secret_value "env" "MY_KEY" "value2"
+    ) > /dev/null 2>&1
+
+    ENV_FILE="$TMP_OC_DIR/.env"
+    count=$(grep -c 'export MY_KEY=' "$ENV_FILE" 2>/dev/null || echo 0)
+    if [ "$count" -eq 1 ]; then
+        pass "secrets_env_upsert: upsert replaces existing key (single entry)"
+    else
+        fail "secrets_env_upsert: expected 1 entry, found $count"
+    fi
+
+    teardown_env
+fi
+
+section "secrets-helper.sh — exec provider guidance"
+
+if should_run "secrets_exec_returns_nonzero"; then
+    setup_env
+    setup_openclaw
+
+    set +e
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$SECRETS_HELPER"
+        persist_secret_value "exec" "VAULT_KEY" "secret123"
+    ) > /dev/null 2>&1
+    local_rc=$?
+    set -e
+
+    if [ "$local_rc" -ne 0 ]; then
+        pass "secrets_exec_returns_nonzero: exec provider returns non-zero (user must store manually)"
+    else
+        fail "secrets_exec_returns_nonzero: expected non-zero exit for exec provider"
+    fi
+
+    teardown_env
+fi
+
+section "secrets-helper.sh — detect_secrets_provider default"
+
+if should_run "secrets_detect_default_env"; then
+    setup_env
+    setup_openclaw
+
+    provider=$(
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$SECRETS_HELPER"
+        detect_secrets_provider
+    )
+
+    if [ "$provider" = "env" ]; then
+        pass "secrets_detect_default_env: defaults to 'env' when unconfigured"
+    else
+        fail "secrets_detect_default_env: expected 'env', got '$provider'"
+    fi
+
+    teardown_env
+fi
+
+# ─── Token storage: no plaintext in config ────────────────────────────────────
+
+section "Channel setup — no plaintext tokens in config"
+
+if should_run "no_plaintext_discord_token"; then
+    setup_env
+    setup_openclaw
+
+    # Simulate what setup-discord-agent.sh writes: SecretRef, not plaintext
+    python3 - "$TMP_OC_DIR/openclaw.json" << 'PYEOF'
+import json, sys
+with open(sys.argv[1]) as f:
+    config = json.load(f)
+config.setdefault("channels", {}).setdefault("discord", {}).setdefault("accounts", {})["testbot"] = {
+    "enabled": True,
+    "token": {"source": "env", "provider": "default", "id": "DISCORD_BOT_TOKEN_TESTBOT"}
+}
+with open(sys.argv[1], "w") as f:
+    json.dump(config, f, indent=2)
+PYEOF
+
+    # Verify token is a SecretRef object, not a string
+    is_ref=$(python3 -c "
+import json
+with open('$TMP_OC_DIR/openclaw.json') as f:
+    c = json.load(f)
+token = c['channels']['discord']['accounts']['testbot']['token']
+print('yes' if isinstance(token, dict) and 'source' in token else 'no')
+" 2>/dev/null)
+
+    if [ "$is_ref" = "yes" ]; then
+        pass "no_plaintext_discord_token: Discord token stored as SecretRef object"
+    else
+        fail "no_plaintext_discord_token: Discord token is not a SecretRef"
+    fi
+
+    teardown_env
+fi
+
+if should_run "no_plaintext_telegram_token"; then
+    setup_env
+    setup_openclaw
+
+    # Simulate what setup-telegram-agent.sh writes: SecretRef, not plaintext
+    python3 - "$TMP_OC_DIR/openclaw.json" << 'PYEOF'
+import json, sys
+with open(sys.argv[1]) as f:
+    config = json.load(f)
+config.setdefault("channels", {}).setdefault("telegram", {}).setdefault("accounts", {})["testbot"] = {
+    "enabled": True,
+    "botToken": {"source": "env", "provider": "default", "id": "TELEGRAM_BOT_TOKEN_TESTBOT"}
+}
+with open(sys.argv[1], "w") as f:
+    json.dump(config, f, indent=2)
+PYEOF
+
+    is_ref=$(python3 -c "
+import json
+with open('$TMP_OC_DIR/openclaw.json') as f:
+    c = json.load(f)
+token = c['channels']['telegram']['accounts']['testbot']['botToken']
+print('yes' if isinstance(token, dict) and 'source' in token else 'no')
+" 2>/dev/null)
+
+    if [ "$is_ref" = "yes" ]; then
+        pass "no_plaintext_telegram_token: Telegram botToken stored as SecretRef object"
+    else
+        fail "no_plaintext_telegram_token: Telegram botToken is not a SecretRef"
+    fi
+
+    teardown_env
+fi
+
+# ─── Agent removal: Discord + Telegram cleanup ───────────────────────────────
+
+REMOVE_SH="$REPO_ROOT/skills/multiagency-remove-agent/scripts/remove-agent.sh"
+
+section "remove-agent.sh — Discord cleanup"
+
+if should_run "remove_detects_discord"; then
+    setup_env
+    setup_openclaw
+    setup_git_identity
+
+    # Set up config with both Discord and Telegram accounts + bindings
+    python3 - "$TMP_OC_DIR/openclaw.json" << 'PYEOF'
+import json, sys
+config = {
+    "agents": {"list": [{"id": "mybot", "workspace": "/tmp/mybot"}]},
+    "channels": {
+        "discord": {
+            "enabled": True,
+            "accounts": {
+                "mybot": {
+                    "enabled": True,
+                    "token": {"source": "env", "provider": "default", "id": "DISCORD_BOT_TOKEN_MYBOT"}
+                }
+            }
+        },
+        "telegram": {
+            "accounts": {
+                "mybot_bot": {
+                    "enabled": True,
+                    "botToken": {"source": "env", "provider": "default", "id": "TELEGRAM_BOT_TOKEN_MYBOT"}
+                }
+            }
+        }
+    },
+    "bindings": [
+        {"agentId": "mybot", "match": {"channel": "discord", "accountId": "mybot"}},
+        {"agentId": "mybot", "match": {"channel": "telegram", "accountId": "mybot_bot"}}
+    ],
+    "session": {"idleMinutes": 10080}
+}
+with open(sys.argv[1], "w") as f:
+    json.dump(config, f, indent=2)
+PYEOF
+
+    # Create agent directory for removal
+    mkdir -p "$TMP_WORKSPACE/mybot"
+    init_workspace_git "$TMP_WORKSPACE"
+    printf "# IDENTITY\n" > "$TMP_WORKSPACE/mybot/IDENTITY.md"
+    (cd "$TMP_WORKSPACE" && git add -A && git commit -q -m "init")
+
+    # Run remove in dry-run mode
+    set +e
+    OUT=$(
+        HOME="$TMP_HOME" \
+        WORKSPACE_DIR="$TMP_WORKSPACE" \
+        OPENCLAW_DIR="$TMP_OC_DIR" \
+        KIT_DIR="$REPO_ROOT" \
+        GIT_CONFIG_GLOBAL="$TMP_HOME/.gitconfig" \
+            bash "$REMOVE_SH" mybot --dry-run < /dev/null 2>&1
+    )
+    RC=$?
+    set -e
+
+    if out_contains "Discord" && out_contains "mybot"; then
+        pass "remove_detects_discord: dry run detects Discord account for removal"
+    else
+        fail "remove_detects_discord: Discord account not detected (RC=$RC)"
+        echo "  output: $OUT"
+    fi
+
+    if out_contains "Telegram" && out_contains "mybot_bot"; then
+        pass "remove_detects_discord: dry run also detects Telegram account"
+    else
+        fail "remove_detects_discord: Telegram account not detected"
+    fi
+
+    if out_contains "DISCORD_BOT_TOKEN_MYBOT" || out_contains "orphan"; then
+        pass "remove_detects_discord: reports orphaned secret references"
+    else
+        fail "remove_detects_discord: orphaned refs not reported"
+    fi
+
+    teardown_env
+fi
+
 # ─── Summary ──────────────────────────────────────────────────────────────────
 
 echo

@@ -30,8 +30,6 @@ log_step()    { echo; echo -e "${CYAN}▶ $1${NC}"; }
 
 # ─── Path detection ───────────────────────────────────────────────────────────
 
-# Script lives at: <workspace>/kit/skills/multiagency-remove-agent/scripts/remove-agent.sh
-# Five levels up = workspace root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTO_WORKSPACE="$(dirname "$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")")"
 
@@ -44,6 +42,15 @@ if [ -z "${WORKSPACE_DIR:-}" ]; then
 fi
 
 OPENCLAW_DIR="${OPENCLAW_DIR:-$HOME/.openclaw}"
+KIT_DIR="${KIT_DIR:-$WORKSPACE_DIR/kit}"
+
+# ─── Source secrets helper ───────────────────────────────────────────────────
+
+SECRETS_HELPER="$KIT_DIR/scripts/lib/secrets-helper.sh"
+if [ -f "$SECRETS_HELPER" ]; then
+    # shellcheck source=scripts/lib/secrets-helper.sh
+    source "$SECRETS_HELPER"
+fi
 
 # ─── Argument parsing ─────────────────────────────────────────────────────────
 
@@ -104,7 +111,6 @@ fi
 
 # ─── Detect Telegram config ───────────────────────────────────────────────────
 
-# Find any Telegram account IDs and bindings associated with this agent
 detect_telegram() {
     if [ ! -f "$CONFIG_FILE" ]; then
         return
@@ -120,13 +126,10 @@ try:
     bindings = config.get("bindings", [])
     accounts = config.get("channels", {}).get("telegram", {}).get("accounts", {})
 
-    # Find bindings for this agent
     agent_bindings = [b for b in bindings if b.get("agentId") == agent_id]
-
-    # Find account IDs referenced in those bindings
     account_ids = [b.get("match", {}).get("accountId") for b in agent_bindings
                    if b.get("match", {}).get("channel") == "telegram"]
-    account_ids = [a for a in account_ids if a]  # remove None
+    account_ids = [a for a in account_ids if a]
 
     if account_ids:
         print("found:" + ",".join(account_ids))
@@ -137,11 +140,91 @@ except Exception as e:
 EOF
 }
 
+# ─── Detect Discord config ───────────────────────────────────────────────────
+
+detect_discord() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        return
+    fi
+    python3 << EOF
+import json, sys
+
+try:
+    with open("$CONFIG_FILE") as f:
+        config = json.load(f)
+
+    agent_id = "$AGENT_NAME"
+    bindings = config.get("bindings", [])
+    accounts = config.get("channels", {}).get("discord", {}).get("accounts", {})
+
+    agent_bindings = [b for b in bindings if b.get("agentId") == agent_id]
+    account_ids = [b.get("match", {}).get("accountId") for b in agent_bindings
+                   if b.get("match", {}).get("channel") == "discord"]
+    account_ids = [a for a in account_ids if a]
+
+    if account_ids:
+        print("found:" + ",".join(account_ids))
+    else:
+        print("none")
+except Exception as e:
+    print("none")
+EOF
+}
+
+# ─── Extract SecretRef IDs from accounts about to be removed ─────────────────
+
+extract_secret_refs() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        return
+    fi
+    python3 - "$CONFIG_FILE" "$TELEGRAM_ACCOUNTS" "$DISCORD_ACCOUNTS" << 'PYEOF'
+import json, sys
+
+config_file = sys.argv[1]
+telegram_accounts_str = sys.argv[2] if len(sys.argv) > 2 else ""
+discord_accounts_str = sys.argv[3] if len(sys.argv) > 3 else ""
+
+telegram_accounts = [a for a in telegram_accounts_str.split(",") if a]
+discord_accounts = [a for a in discord_accounts_str.split(",") if a]
+
+try:
+    with open(config_file) as f:
+        config = json.load(f)
+
+    refs = []
+
+    for acct_id in telegram_accounts:
+        acct = config.get("channels", {}).get("telegram", {}).get("accounts", {}).get(acct_id, {})
+        token = acct.get("botToken", {})
+        if isinstance(token, dict) and "id" in token:
+            refs.append(f"{token.get('source', 'env')}:{token.get('provider', 'default')}:{token['id']}")
+
+    for acct_id in discord_accounts:
+        acct = config.get("channels", {}).get("discord", {}).get("accounts", {}).get(acct_id, {})
+        token = acct.get("token", {})
+        if isinstance(token, dict) and "id" in token:
+            refs.append(f"{token.get('source', 'env')}:{token.get('provider', 'default')}:{token['id']}")
+
+    for r in refs:
+        print(r)
+except Exception:
+    pass
+PYEOF
+}
+
 TELEGRAM_RESULT=$(detect_telegram 2>/dev/null || echo "none")
 TELEGRAM_ACCOUNTS=""
 if [[ "$TELEGRAM_RESULT" == found:* ]]; then
     TELEGRAM_ACCOUNTS="${TELEGRAM_RESULT#found:}"
 fi
+
+DISCORD_RESULT=$(detect_discord 2>/dev/null || echo "none")
+DISCORD_ACCOUNTS=""
+if [[ "$DISCORD_RESULT" == found:* ]]; then
+    DISCORD_ACCOUNTS="${DISCORD_RESULT#found:}"
+fi
+
+ORPHANED_REFS=$(extract_secret_refs 2>/dev/null || true)
 
 # ─── Banner ───────────────────────────────────────────────────────────────────
 
@@ -176,6 +259,21 @@ if [ -n "$TELEGRAM_ACCOUNTS" ]; then
     done
     echo
     log_warn "Bot tokens remain active until you run /deletebot in @BotFather"
+fi
+
+if [ -n "$DISCORD_ACCOUNTS" ]; then
+    IFS=',' read -ra ACCT_LIST <<< "$DISCORD_ACCOUNTS"
+    for acct in "${ACCT_LIST[@]}"; do
+        log_info "Discord:    remove account '$acct' + binding from openclaw.json"
+    done
+fi
+
+if [ -n "$ORPHANED_REFS" ]; then
+    echo
+    log_info "Orphaned secret references (no longer needed):"
+    while IFS= read -r ref; do
+        [ -n "$ref" ] && echo "    $ref"
+    done <<< "$ORPHANED_REFS"
 fi
 
 log_info "Config:     remove from openclaw.json agents.list"
@@ -228,7 +326,9 @@ import json, sys
 config_file = "$CONFIG_FILE"
 agent_id = "$AGENT_NAME"
 telegram_accounts_str = "$TELEGRAM_ACCOUNTS"
+discord_accounts_str = "$DISCORD_ACCOUNTS"
 telegram_accounts = [a for a in telegram_accounts_str.split(",") if a]
+discord_accounts = [a for a in discord_accounts_str.split(",") if a]
 
 try:
     with open(config_file) as f:
@@ -262,6 +362,25 @@ try:
         if removed_bindings:
             print(f"Removed {removed_bindings} Telegram binding(s)")
 
+    # Remove Discord accounts and bindings
+    if discord_accounts:
+        accounts = config.get("channels", {}).get("discord", {}).get("accounts", {})
+        for acct_id in discord_accounts:
+            if acct_id in accounts:
+                del accounts[acct_id]
+                print(f"Removed Discord account: {acct_id}")
+
+        bindings = config.get("bindings", [])
+        before = len(bindings)
+        config["bindings"] = [
+            b for b in bindings
+            if not (b.get("agentId") == agent_id and
+                    b.get("match", {}).get("channel") == "discord")
+        ]
+        removed_bindings = before - len(config["bindings"])
+        if removed_bindings:
+            print(f"Removed {removed_bindings} Discord binding(s)")
+
     with open(config_file, "w") as f:
         json.dump(config, f, indent=2)
 
@@ -271,6 +390,23 @@ except Exception as e:
 EOF
 
     log_success "openclaw.json updated"
+fi
+
+# ─── Report orphaned secret references ────────────────────────────────────────
+
+if [ -n "$ORPHANED_REFS" ]; then
+    log_step "Orphaned Secret References"
+    while IFS= read -r ref; do
+        if [ -n "$ref" ] && type report_orphaned_ref &>/dev/null; then
+            # Parse "source:provider:id" format
+            local_source=$(echo "$ref" | cut -d: -f1)
+            local_id=$(echo "$ref" | cut -d: -f3-)
+            report_orphaned_ref "$local_id" "$local_source"
+        elif [ -n "$ref" ]; then
+            log_warn "Orphaned secret: $ref"
+            log_info "Clean up with: openclaw secrets audit --check"
+        fi
+    done <<< "$ORPHANED_REFS"
 fi
 
 # ─── Handle workspace directory ───────────────────────────────────────────────
@@ -317,7 +453,8 @@ else
 
 - $ACTION workspace directory
 - Removed from openclaw.json agents.list
-$([ -n "$TELEGRAM_ACCOUNTS" ] && echo "- Removed Telegram account(s): $TELEGRAM_ACCOUNTS")"
+$([ -n "$TELEGRAM_ACCOUNTS" ] && echo "- Removed Telegram account(s): $TELEGRAM_ACCOUNTS")
+$([ -n "$DISCORD_ACCOUNTS" ] && echo "- Removed Discord account(s): $DISCORD_ACCOUNTS")"
         log_success "Changes committed"
     else
         log_info "Nothing to commit"
@@ -335,9 +472,19 @@ if ! $HARD_DELETE; then
 fi
 if [ -n "$TELEGRAM_ACCOUNTS" ]; then
     echo "║                                                        ║"
-    echo "║  ⚠  Telegram bot token still active!                  ║"
-    echo "║     Message @BotFather and run /deletebot              ║"
-    echo "║     to fully decommission the bot.                     ║"
+    echo "║  Telegram bot token still active!                      ║"
+    echo "║  Message @BotFather and run /deletebot                 ║"
+    echo "║  to fully decommission the bot.                        ║"
+fi
+if [ -n "$DISCORD_ACCOUNTS" ]; then
+    echo "║                                                        ║"
+    echo "║  Discord bot token still active!                       ║"
+    echo "║  Delete the bot at discord.com/developers/applications ║"
+fi
+if [ -n "$ORPHANED_REFS" ]; then
+    echo "║                                                        ║"
+    echo "║  Run: openclaw secrets audit --check                   ║"
+    echo "║  to clean up orphaned secret references.               ║"
 fi
 echo "║                                                        ║"
 echo "║  Restart OpenClaw: openclaw gateway restart            ║"

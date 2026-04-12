@@ -1,11 +1,11 @@
 ---
 name: multiagency-discord-setup
-description: Configure Discord channel routing for an OpenClaw agent. Use when asked to set up Discord for an agent, add a Discord bot, or route a Discord bot to an existing agent.
+description: Configure and manage Discord channel routing for OpenClaw agents. Use when asked to set up Discord for an agent, add a Discord bot, manage guilds/channels/allowlists, or route a Discord bot to an existing agent.
 disable-model-invocation: true
 user-invocable: true
 ---
 
-# Discord Agent Setup
+# Discord Agent Setup & Management
 
 ## Sandbox Warning
 
@@ -16,7 +16,7 @@ Scripts in this skill write to `~/.openclaw/openclaw.json`, which is outside the
 
 ## Overview
 
-This skill provides the complete workflow for configuring an OpenClaw agent in a **multi-agent workspace** to receive messages from a Discord bot. The OpenClaw gateway handles the Discord connection — this skill writes the config that tells the gateway which bot token to use, which servers to join, and which agent to route messages to.
+This skill provides the complete workflow for configuring an OpenClaw agent in a **multi-agent workspace** to receive messages from a Discord bot, and for managing the ongoing configuration of Discord accounts, guilds, channels, and allowlists.
 
 For full Discord channel documentation, see: https://github.com/openclaw/openclaw/blob/main/docs/channels/discord.md
 
@@ -32,8 +32,9 @@ This will:
 1. Select or create an agent
 2. Guide you through Discord bot creation in the Developer Portal
 3. Collect your bot token, server ID, and user ID
-4. Configure the Discord account and binding in `openclaw.json`
-5. Optionally create the agent workspace from template
+4. **Store the bot token via the active secrets provider** (env/file/exec — never plaintext in config)
+5. Configure the Discord account and binding in `openclaw.json`
+6. Optionally create the agent workspace from template
 
 ## Add Guild (Server)
 
@@ -49,15 +50,91 @@ Or with arguments:
 {baseDir}/scripts/setup-discord-guild.sh --agent <agent-id> --account <account-id> --guild <server-id>
 ```
 
-The script will:
-1. Select the agent and its Discord account (auto-detects if only one binding exists)
-2. Add the guild to `channels.discord.accounts.<account>.guilds` with `requireMention` and user allowlist
-3. Write the config directly to `openclaw.json`
-
 After running, restart the gateway:
 
 ```bash
 openclaw gateway restart
+```
+
+## Managing Existing Bots
+
+Use `manage-discord.sh` to view and modify Discord configuration after initial setup:
+
+```bash
+{baseDir}/scripts/manage-discord.sh <command> [options]
+```
+
+### List all accounts, guilds, and channels
+
+```bash
+{baseDir}/scripts/manage-discord.sh list
+```
+
+Output shows accounts, their SecretRef token types (never values), bound agents, guilds, user/role allowlists, channel restrictions, and mention settings.
+
+### Manage user/role allowlists
+
+```bash
+# Show allowlists for all guilds on an account
+{baseDir}/scripts/manage-discord.sh allowlist show --account dev
+
+# Show for a specific guild
+{baseDir}/scripts/manage-discord.sh allowlist show --account dev --guild 123456789012345678
+
+# Add a user to a guild's allowlist
+{baseDir}/scripts/manage-discord.sh allowlist add --guild 123456789012345678 --user 987654321098765432
+
+# Add a role to a guild's allowlist
+{baseDir}/scripts/manage-discord.sh allowlist add --guild 123456789012345678 --role 111111111111111111
+
+# Remove a user
+{baseDir}/scripts/manage-discord.sh allowlist remove --guild 123456789012345678 --user 987654321098765432
+```
+
+When only one Discord account exists, `--account` is auto-detected.
+
+### Add or remove guilds (servers)
+
+```bash
+# Add a guild with mention required and user allowlist
+{baseDir}/scripts/manage-discord.sh guild add --guild 123456789012345678 --require-mention true --users "987654321098765432"
+
+# Add a guild where bot responds to all messages
+{baseDir}/scripts/manage-discord.sh guild add --guild 123456789012345678 --require-mention false
+
+# Remove a guild
+{baseDir}/scripts/manage-discord.sh guild remove --guild 123456789012345678
+```
+
+### Restrict bot to specific channels
+
+By default, a bot responds in all channels of an allowlisted guild. To restrict:
+
+```bash
+# Allow bot only in specific channels
+{baseDir}/scripts/manage-discord.sh channel add --guild 123456789012345678 --channel 111111111111111111
+{baseDir}/scripts/manage-discord.sh channel add --guild 123456789012345678 --channel 222222222222222222 --require-mention false
+
+# List channels for a guild
+{baseDir}/scripts/manage-discord.sh channel list --guild 123456789012345678
+
+# Remove a channel restriction
+{baseDir}/scripts/manage-discord.sh channel remove --guild 123456789012345678 --channel 111111111111111111
+```
+
+When `channels` is configured on a guild, **only listed channels are allowed**.
+
+### Toggle require mention
+
+```bash
+# Require @mention in a guild
+{baseDir}/scripts/manage-discord.sh mention on --guild 123456789012345678
+
+# Allow bot to respond without @mention
+{baseDir}/scripts/manage-discord.sh mention off --guild 123456789012345678
+
+# Override for a specific channel
+{baseDir}/scripts/manage-discord.sh mention off --guild 123456789012345678 --channel 111111111111111111
 ```
 
 ## Manual Workflow
@@ -69,7 +146,7 @@ openclaw gateway restart
 3. Click **Bot** on the sidebar, set the bot **Username**
 4. Under **Privileged Gateway Intents**, enable:
    - **Message Content Intent** (required)
-   - **Server Members Intent** (recommended)
+   - **Server Members Intent** (recommended; required for role allowlists)
 5. Click **Reset Token** to generate your bot token — copy and save it
 6. Click **OAuth2** on the sidebar, scroll to **OAuth2 URL Generator**:
    - Scopes: `bot`, `applications.commands`
@@ -81,58 +158,42 @@ openclaw gateway restart
 
 **Save your bot token, server ID, and user ID** — you'll need all three.
 
-### Step 2: Plan Your Agent
+### Step 2: Store Bot Token via SecretRef
 
-| Value | Example | Notes |
-|-------|---------|-------|
-| `agentId` | `research` | Lowercase, hyphens OK |
-| `accountId` | `research` | Discord account identifier |
-| `workspace` | `<workspace>/research` | Agent's workspace directory |
-| `model` | _(your preferred model)_ | Primary model for this agent |
+Bot tokens are **never stored as plaintext** in `openclaw.json`. They are stored via the active secrets provider and referenced by a SecretRef object.
 
-### Step 3: Set Bot Token as Environment Variable
-
-Discord bot tokens are stored as environment variable references (not plaintext) in `openclaw.json`. Export the token on the machine running OpenClaw:
+The setup script handles this automatically. For manual setup:
 
 ```bash
-export DISCORD_BOT_TOKEN="your-bot-token-here"
+# For env provider (default): store in ~/.openclaw/.env
+echo 'export DISCORD_BOT_TOKEN_DEV="your-token"' >> ~/.openclaw/.env
+chmod 600 ~/.openclaw/.env
+
+# Write the SecretRef to config
+openclaw config set channels.discord.accounts.dev.token \
+  --ref-provider default --ref-source env --ref-id DISCORD_BOT_TOKEN_DEV
+
+# Validate
+openclaw secrets audit --check
 ```
 
-Add this to your shell profile (`.bashrc`, `.zshrc`, etc.) so it persists across restarts. If you run multiple Discord bots, use unique env var names (e.g., `DISCORD_RESEARCH_BOT_TOKEN`).
+For other providers (file, exec/vault), see [Secrets Management](https://github.com/openclaw/openclaw/blob/main/docs/gateway/secrets.md).
 
-### Step 4: Edit openclaw.json
+### Step 3: Edit openclaw.json
 
-Open `~/.openclaw/openclaw.json` and add three sections:
-
-#### 4a. Add Agent to `agents.list`
-
-```json
-"agents": {
-  "list": [
-    {
-      "id": "main"
-    },
-    {
-      "id": "research",
-      "workspace": "<workspace>/research"
-    }
-  ]
-}
-```
-
-#### 4b. Add Discord Account to `channels.discord.accounts`
+The resulting config uses SecretRef for the token:
 
 ```json
 "channels": {
   "discord": {
     "enabled": true,
     "accounts": {
-      "research": {
+      "dev": {
         "enabled": true,
         "token": {
           "source": "env",
           "provider": "default",
-          "id": "DISCORD_BOT_TOKEN"
+          "id": "DISCORD_BOT_TOKEN_DEV"
         },
         "guilds": {
           "YOUR_SERVER_ID": {
@@ -146,78 +207,26 @@ Open `~/.openclaw/openclaw.json` and add three sections:
 }
 ```
 
-**Key fields:**
-- `enabled`: `true` to activate this account
-- `token`: SecretRef pointing to the environment variable holding the bot token
-- `guilds`: Map of server IDs to guild config
-- `guilds.<id>.requireMention`: Whether the bot must be @mentioned to respond in channels
-- `guilds.<id>.users`: Array of Discord user IDs allowed to trigger the bot
-
-#### 4c. Add Binding
+Add a binding:
 
 ```json
 "bindings": [
   {
-    "agentId": "research",
+    "agentId": "dev",
     "match": {
       "channel": "discord",
-      "accountId": "research"
+      "accountId": "dev"
     }
   }
 ]
 ```
 
-This routes messages from the `research` Discord account to the `research` agent.
-
-### Step 5: Create Workspace
-
-Use `add-agent.sh` to create the workspace from the kit template (recommended):
+### Step 4: Restart and Verify
 
 ```bash
-cd <workspace>
-./kit/scripts/add-agent.sh your-agent-name
-```
-
-Or manually:
-
-```bash
-cd <workspace>
-cp -r kit/workspace-template your-agent-name
-```
-
-### Step 6: Add to Git
-
-```bash
-cd <workspace>
-git add your-agent-name/
-git commit -m "[main] Add your-agent-name agent workspace"
-git push origin main
-```
-
-### Step 7: Restart Gateway
-
-```bash
+openclaw secrets audit --check
 openclaw gateway restart
 ```
-
-Or use the gateway tool in your session:
-
-```
-gateway action=restart
-```
-
-### Step 8: Verify
-
-1. Open Discord and find your bot (it should appear online in your server)
-2. DM the bot or @mention it in a channel
-3. The agent should respond
-
-If it doesn't respond:
-- Check gateway logs: `openclaw logs --follow`
-- Verify the bot token env var is exported
-- Verify **Message Content Intent** is enabled in the Developer Portal
-- Confirm your server ID is in `guilds`
-- Check the binding matches `agentId` and `accountId`
 
 ## Configuration Reference
 
@@ -231,6 +240,8 @@ If it doesn't respond:
 | `guilds.<id>.requireMention` | No (default: true) | Bot must be @mentioned to respond in channels |
 | `guilds.<id>.users` | No | Array of Discord user IDs allowed to trigger the bot |
 | `guilds.<id>.roles` | No | Array of Discord role IDs allowed to trigger the bot |
+| `guilds.<id>.channels` | No | Map of channel IDs; if set, only listed channels are allowed |
+| `guilds.<id>.ignoreOtherMentions` | No | Drop messages that mention another user/role but not the bot |
 
 ### Binding Fields
 
@@ -246,24 +257,7 @@ If it doesn't respond:
 |-------|----------|-------------|
 | `session.idleMinutes` | No (default: `10080`) | How long a session can be idle before expiring, in minutes. e.g. `30`, `720` (12h), `10080` (7d). Applies globally to all channels. |
 
-## Guild Workspace Setup
-
-Once DMs are working, you can set up your Discord server as a full workspace where each channel gets its own agent session. This is recommended for private servers.
-
-### Require Mention vs. Always Respond
-
-By default, `requireMention: true` means the bot only responds when @mentioned in channels. For a private server where it's just you and your bot, set `requireMention: false` to have it respond to every message:
-
-```json
-"guilds": {
-  "YOUR_SERVER_ID": {
-    "requireMention": false,
-    "users": ["YOUR_USER_ID"]
-  }
-}
-```
-
-### Channel-Level Allowlists
+## Channel-Level Allowlists
 
 Restrict the bot to specific channels within a server:
 
@@ -281,84 +275,7 @@ Restrict the bot to specific channels within a server:
 
 If `channels` is set, only listed channels are allowed. If omitted, all channels in the guild are allowed.
 
-## Discord Channels and Threads
-
-Each Discord guild channel and thread is routed as its own isolated session by OpenClaw. The session key uses the format `agent:{agentId}:discord:channel:{channelId}` — Discord threads are channels, so they follow the same pattern.
-
-### How It Works
-
-- Each Discord channel/thread gets its own session key and JSONL transcript in OpenClaw
-- The agent workspace's `threads/` directory holds long-term memory per channel/thread
-- On session start, the agent detects `:discord:channel:` in the `SESSION_KEY` and loads channel-specific memory
-
-### Session Key Format
-
-```
-agent:{agentId}:discord:channel:{channelId}
-```
-
-Example: `agent:main:discord:channel:1489699841322909786`
-
-**Sanitized folder name** (replace `:` with `-`):
-```
-agent-main-discord-channel-1489699841322909786
-```
-
-### Channel/Thread Memory
-
-Memory files live in `threads/{sanitized-session-key}/MEMORY.md` within the agent workspace. They survive session expiry so the agent can resume context across restarts. The `threads/` directory name is a convention — it holds memory for any isolated session, including Discord channels.
-
-See `multiagency-thread-memory` for the full thread memory protocol (creating folders, updating memory, session lifecycle).
-
-## Common Patterns
-
-### Multiple Bots, Same Agent
-
-Route multiple Discord bots to one agent:
-
-```json
-"bindings": [
-  {
-    "agentId": "main",
-    "match": {
-      "channel": "discord",
-      "accountId": "default"
-    }
-  },
-  {
-    "agentId": "main",
-    "match": {
-      "channel": "discord",
-      "accountId": "personal_bot"
-    }
-  }
-]
-```
-
-### Multiple Agents, Multiple Bots
-
-Each bot routes to a different agent:
-
-```json
-"bindings": [
-  {
-    "agentId": "research",
-    "match": {
-      "channel": "discord",
-      "accountId": "research"
-    }
-  },
-  {
-    "agentId": "assistant",
-    "match": {
-      "channel": "discord",
-      "accountId": "assistant"
-    }
-  }
-]
-```
-
-### Role-Based Agent Routing
+## Role-Based Agent Routing
 
 Route Discord guild members to different agents by role:
 
@@ -382,11 +299,20 @@ Route Discord guild members to different agents by role:
 ]
 ```
 
+## Security Notes
+
+- **Bot tokens** must be stored via SecretRef — never as plaintext strings in `openclaw.json`
+- The setup script uses the active secrets provider (env, file, or exec) automatically
+- **guilds + users** restricts which servers and users can trigger the bot
+- **requireMention: true** prevents the bot from responding to every message
+- **`openclaw secrets audit --check`** verifies no plaintext residues remain
+- Grant least-privilege Discord permissions (avoid Administrator)
+
 ## Troubleshooting
 
 **Bot doesn't respond:**
 - Gateway not restarted after config change
-- Bot token env var not exported or incorrect
+- Bot token SecretRef cannot resolve (run `openclaw secrets audit --check`)
 - **Message Content Intent** not enabled in Developer Portal
 - Server ID not in `guilds`
 - Binding doesn't match account ID
@@ -400,16 +326,3 @@ Route Discord guild members to different agents by role:
 - Check binding order (first match wins)
 - Verify `accountId` in binding matches Discord account
 - Check role-based bindings if using `roles`
-
-**Config validation errors:**
-- JSON syntax (missing commas, quotes)
-- Token must be a SecretRef object, not a plain string
-- Use `gateway action=config.get` to verify current config
-
-## Security Notes
-
-- **Bot tokens** are sensitive — store in env vars, never plaintext in config
-- **guilds + users** restricts which servers and users can trigger the bot
-- **requireMention: true** prevents the bot from responding to every message
-- Don't commit `openclaw.json` with real tokens to version control
-- Grant least-privilege Discord permissions (avoid Administrator)
