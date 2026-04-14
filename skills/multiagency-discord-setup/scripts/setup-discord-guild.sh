@@ -66,6 +66,18 @@ AGENT_ID=""
 ACCOUNT_ID=""
 GUILD_ID=""
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AUTO_WORKSPACE="$(dirname "$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")")"
+KIT_DIR="${KIT_DIR:-$AUTO_WORKSPACE/kit}"
+if [ ! -d "$KIT_DIR" ] && [ -d "$AUTO_WORKSPACE" ]; then
+    KIT_DIR="$AUTO_WORKSPACE"
+fi
+
+CONFIG_HELPER="$KIT_DIR/scripts/lib/config-helper.sh"
+if [ -f "$CONFIG_HELPER" ]; then
+    source "$CONFIG_HELPER"
+fi
+
 # ─── Args ─────────────────────────────────────────────────────────────────────
 
 while [[ $# -gt 0 ]]; do
@@ -306,57 +318,21 @@ fi
 
 log_step "Updating openclaw.json"
 
-python3 - "$CONFIG_FILE" "$ACCOUNT_ID" "$GUILD_ID" "$REQUIRE_MENTION" "$USER_IDS" << 'PYEOF'
-import json, sys
+GUILD_BASE="channels.discord.accounts.${ACCOUNT_ID}.guilds.${GUILD_ID}"
 
-config_file = sys.argv[1]
-account_id = sys.argv[2]
-guild_id = sys.argv[3]
-require_mention = sys.argv[4] == "true" if len(sys.argv) > 4 else True
-user_ids_str = sys.argv[5] if len(sys.argv) > 5 else ""
+oc_config_set_json "${GUILD_BASE}.requireMention" "$REQUIRE_MENTION"
 
-try:
-    with open(config_file) as f:
-        config = json.load(f)
+if [ -n "$USER_IDS" ]; then
+    IFS=',' read -ra ID_ARRAY <<< "$USER_IDS"
+    for uid in "${ID_ARRAY[@]}"; do
+        uid=$(echo "$uid" | xargs)
+        [ -n "$uid" ] && oc_array_add_if_absent "${GUILD_BASE}.users" "$uid"
+    done
+fi
 
-    discord = config.get("channels", {}).get("discord", {})
-    accounts = discord.get("accounts", {})
+log_info "Added guild $GUILD_ID to account '$ACCOUNT_ID'"
 
-    if account_id not in accounts:
-        print(f"Account '{account_id}' not found in channels.discord.accounts", file=sys.stderr)
-        sys.exit(1)
-
-    acct = accounts[account_id]
-    guilds = acct.setdefault("guilds", {})
-
-    guild_config = guilds.get(guild_id, {})
-    guild_config["requireMention"] = require_mention
-
-    if user_ids_str.strip():
-        users = []
-        existing_users = set(guild_config.get("users", []))
-        for s in user_ids_str.split(","):
-            s = s.strip()
-            if s:
-                existing_users.add(s)
-        guild_config["users"] = sorted(existing_users)
-
-    guilds[guild_id] = guild_config
-    print(f"Added guild {guild_id} to account '{account_id}'")
-
-    # Ensure session idle timeout is configured
-    session = config.setdefault("session", {})
-    if "idleMinutes" not in session:
-        session["idleMinutes"] = 10080
-        print("Set session.idleMinutes to 10080 (7 days, default)")
-
-    with open(config_file, "w") as f:
-        json.dump(config, f, indent=2)
-
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
+oc_config_set_if_missing "session.idleMinutes" "10080"
 
 log_success "openclaw.json updated"
 

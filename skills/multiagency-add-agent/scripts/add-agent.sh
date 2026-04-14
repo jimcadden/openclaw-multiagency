@@ -38,6 +38,12 @@ fi
 
 OPENCLAW_DIR="${OPENCLAW_DIR:-$HOME/.openclaw}"
 KIT_DIR="${KIT_DIR:-$WORKSPACE_DIR/kit}"
+
+# Source config helper
+CONFIG_HELPER="$KIT_DIR/scripts/lib/config-helper.sh"
+if [ -f "$CONFIG_HELPER" ]; then
+    source "$CONFIG_HELPER"
+fi
 AGENT_NAME="${1:-}"
 
 # ─── Input helpers ────────────────────────────────────────────────────────────
@@ -186,43 +192,24 @@ update_config() {
         SANDBOX_CHOICE="inherit"
     fi
 
-    python3 << EOF
-import json, sys
+    oc_agents_add "$AGENT_NAME" "$WORKSPACE_DIR/$AGENT_NAME"
 
-config_file = "$CONFIG_FILE"
-agent_id = "$AGENT_NAME"
-workspace = "$WORKSPACE_DIR/$AGENT_NAME"
-sandbox_mode = "$SANDBOX_CHOICE"
-
-try:
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    if 'agents' not in config:
-        config['agents'] = {}
-    if 'list' not in config['agents']:
-        config['agents']['list'] = []
-
-    existing = [a for a in config['agents']['list'] if a.get('id') == agent_id]
-    if existing:
-        print(f"Agent '{agent_id}' already in openclaw.json")
-        sys.exit(0)
-
-    entry = {'id': agent_id, 'workspace': workspace}
-    if sandbox_mode == "off":
-        entry['sandbox'] = {'mode': 'off'}
-
-    config['agents']['list'].append(entry)
-
-    with open(config_file, 'w') as f:
-        json.dump(config, f, indent=2)
-
-    sandbox_note = " (sandbox: off)" if sandbox_mode == "off" else " (sandbox: inherit)"
-    print(f"Registered agent '{agent_id}' in openclaw.json{sandbox_note}")
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
-    sys.exit(1)
-EOF
+    if [ "$SANDBOX_CHOICE" = "off" ]; then
+        # Find the agent's index in agents.list and set sandbox mode
+        local idx
+        idx=$(python3 -c "
+import json
+with open('$CONFIG_FILE') as f:
+    c = json.load(f)
+for i, a in enumerate(c.get('agents',{}).get('list',[])):
+    if a.get('id') == '$AGENT_NAME':
+        print(i); break
+" 2>/dev/null)
+        if [ -n "$idx" ]; then
+            oc_config_set_json "agents.list[$idx].sandbox.mode" '"off"'
+            log_info "Set sandbox mode: off"
+        fi
+    fi
 
     log_success "OpenClaw config updated"
 }

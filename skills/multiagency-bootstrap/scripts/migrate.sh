@@ -129,6 +129,12 @@ resolve_paths() {
 
     WORKSPACE_DIR="${WORKSPACE_DIR/#\~/$HOME}"
     KIT_DIR="$WORKSPACE_DIR/kit"
+
+    # Source config helper for CLI-based config manipulation
+    local ch="$KIT_DIR/scripts/lib/config-helper.sh"
+    if [ -f "$ch" ]; then
+        source "$ch"
+    fi
 }
 
 # ─── Prerequisites ────────────────────────────────────────────────────────────
@@ -443,34 +449,7 @@ register_agent_in_config() {
 
     [ -f "$config_file" ] || return 0
 
-    python3 << EOF
-import json, sys
-
-config_file = "$config_file"
-agent_id = "$agent_name"
-workspace = "$agent_workspace"
-
-try:
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    if 'agents' not in config:
-        config['agents'] = {}
-    if 'list' not in config['agents']:
-        config['agents']['list'] = []
-
-    existing = [a for a in config['agents']['list'] if a.get('id') == agent_id]
-    if not existing:
-        config['agents']['list'].append({'id': agent_id, 'workspace': workspace})
-        print(f"Registered agent '{agent_id}' in openclaw.json (workspace: {workspace})")
-    else:
-        print(f"Agent '{agent_id}' already in openclaw.json")
-
-    with open(config_file, 'w') as f:
-        json.dump(config, f, indent=2)
-except Exception as e:
-    print(f"Warning: could not update openclaw.json: {e}", file=sys.stderr)
-EOF
+    oc_agents_add "$agent_name" "$agent_workspace"
 }
 
 # ─── Kit setup ────────────────────────────────────────────────────────────────
@@ -596,34 +575,7 @@ update_skills_config() {
         return 0
     fi
 
-    python3 << EOF
-import json, sys
-
-config_file = "$CONFIG_FILE"
-shared_skills = "$SHARED_SKILLS"
-
-try:
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    if 'skills' not in config:
-        config['skills'] = {}
-    if 'load' not in config['skills']:
-        config['skills']['load'] = {}
-    extra_dirs = config['skills']['load'].get('extraDirs', [])
-    if shared_skills not in extra_dirs:
-        extra_dirs.append(shared_skills)
-        config['skills']['load']['extraDirs'] = extra_dirs
-        print(f"Added '{shared_skills}' to skills.load.extraDirs")
-    else:
-        print(f"skills.load.extraDirs already contains shared/skills")
-
-    with open(config_file, 'w') as f:
-        json.dump(config, f, indent=2)
-except Exception as e:
-    print(f"Error updating config: {e}", file=sys.stderr)
-    sys.exit(1)
-EOF
+    oc_array_add_if_absent "skills.load.extraDirs" "$SHARED_SKILLS"
 
     log_success "skills.load.extraDirs configured"
 }

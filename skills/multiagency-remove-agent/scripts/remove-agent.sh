@@ -320,74 +320,48 @@ if [ ! -f "$CONFIG_FILE" ]; then
 else
     cp "$CONFIG_FILE" "$CONFIG_FILE.backup.$(date +%Y%m%d-%H%M%S)"
 
-    python3 << EOF
+    # Remove all bindings for this agent
+    if type oc_agents_unbind_all &>/dev/null; then
+        oc_agents_unbind_all "$AGENT_NAME" 2>/dev/null || true
+    fi
+
+    # Remove Telegram accounts
+    if [ -n "$TELEGRAM_ACCOUNTS" ]; then
+        IFS=',' read -ra ACCT_LIST <<< "$TELEGRAM_ACCOUNTS"
+        for acct_id in "${ACCT_LIST[@]}"; do
+            oc_config_unset "channels.telegram.accounts.${acct_id}"
+            log_info "Removed Telegram account: $acct_id"
+        done
+    fi
+
+    # Remove Discord accounts
+    if [ -n "$DISCORD_ACCOUNTS" ]; then
+        IFS=',' read -ra ACCT_LIST <<< "$DISCORD_ACCOUNTS"
+        for acct_id in "${ACCT_LIST[@]}"; do
+            oc_config_unset "channels.discord.accounts.${acct_id}"
+            log_info "Removed Discord account: $acct_id"
+        done
+    fi
+
+    # Remove agent from agents.list
+    if command -v openclaw &>/dev/null; then
+        openclaw agents delete "$AGENT_NAME" --force 2>/dev/null || true
+    else
+        # Fallback: remove agent entry via Python
+        python3 - "$CONFIG_FILE" "$AGENT_NAME" << 'PYEOF'
 import json, sys
-
-config_file = "$CONFIG_FILE"
-agent_id = "$AGENT_NAME"
-telegram_accounts_str = "$TELEGRAM_ACCOUNTS"
-discord_accounts_str = "$DISCORD_ACCOUNTS"
-telegram_accounts = [a for a in telegram_accounts_str.split(",") if a]
-discord_accounts = [a for a in discord_accounts_str.split(",") if a]
-
+config_file, agent_id = sys.argv[1], sys.argv[2]
 try:
     with open(config_file) as f:
         config = json.load(f)
-
-    # Remove from agents.list
-    original_count = len(config.get("agents", {}).get("list", []))
     if "agents" in config and "list" in config["agents"]:
-        config["agents"]["list"] = [
-            a for a in config["agents"]["list"] if a.get("id") != agent_id
-        ]
-        removed = original_count - len(config["agents"]["list"])
-        print(f"Removed {removed} agent entry from agents.list")
-
-    # Remove Telegram accounts and bindings
-    if telegram_accounts:
-        accounts = config.get("channels", {}).get("telegram", {}).get("accounts", {})
-        for acct_id in telegram_accounts:
-            if acct_id in accounts:
-                del accounts[acct_id]
-                print(f"Removed Telegram account: {acct_id}")
-
-        bindings = config.get("bindings", [])
-        before = len(bindings)
-        config["bindings"] = [
-            b for b in bindings
-            if not (b.get("agentId") == agent_id and
-                    b.get("match", {}).get("channel") == "telegram")
-        ]
-        removed_bindings = before - len(config["bindings"])
-        if removed_bindings:
-            print(f"Removed {removed_bindings} Telegram binding(s)")
-
-    # Remove Discord accounts and bindings
-    if discord_accounts:
-        accounts = config.get("channels", {}).get("discord", {}).get("accounts", {})
-        for acct_id in discord_accounts:
-            if acct_id in accounts:
-                del accounts[acct_id]
-                print(f"Removed Discord account: {acct_id}")
-
-        bindings = config.get("bindings", [])
-        before = len(bindings)
-        config["bindings"] = [
-            b for b in bindings
-            if not (b.get("agentId") == agent_id and
-                    b.get("match", {}).get("channel") == "discord")
-        ]
-        removed_bindings = before - len(config["bindings"])
-        if removed_bindings:
-            print(f"Removed {removed_bindings} Discord binding(s)")
-
+        config["agents"]["list"] = [a for a in config["agents"]["list"] if a.get("id") != agent_id]
     with open(config_file, "w") as f:
         json.dump(config, f, indent=2)
-
 except Exception as e:
-    print(f"Error updating config: {e}", file=sys.stderr)
-    sys.exit(1)
-EOF
+    print(f"Error: {e}", file=sys.stderr)
+PYEOF
+    fi
 
     log_success "openclaw.json updated"
 fi

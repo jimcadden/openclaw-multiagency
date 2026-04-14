@@ -41,6 +41,18 @@ log_step()    { echo; echo -e "${CYAN}▶ $1${NC}"; }
 OPENCLAW_DIR="${OPENCLAW_DIR:-$HOME/.openclaw}"
 CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AUTO_WORKSPACE="$(dirname "$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")")"
+KIT_DIR="${KIT_DIR:-$AUTO_WORKSPACE/kit}"
+if [ ! -d "$KIT_DIR" ] && [ -d "$AUTO_WORKSPACE" ]; then
+    KIT_DIR="$AUTO_WORKSPACE"
+fi
+
+CONFIG_HELPER="$KIT_DIR/scripts/lib/config-helper.sh"
+if [ -f "$CONFIG_HELPER" ]; then
+    source "$CONFIG_HELPER"
+fi
+
 # ─── Validate ─────────────────────────────────────────────────────────────────
 
 if [ ! -f "$CONFIG_FILE" ]; then
@@ -125,125 +137,34 @@ auto_detect_account() {
     fi
 }
 
-# ─── Config modification helper ───────────────────────────────────────────────
+# ─── Config modification helpers (delegate to config-helper.sh) ───────────────
 
 config_set() {
     local path="$1"
     local value="$2"
     local strict="${3:-}"
 
-    if command -v openclaw &>/dev/null; then
-        if [ "$strict" = "--strict-json" ]; then
-            openclaw config set "$path" "$value" --strict-json 2>&1
-        else
-            openclaw config set "$path" "$value" 2>&1
-        fi
+    if [ "$strict" = "--strict-json" ]; then
+        oc_config_set_json "$path" "$value"
     else
-        python3 - "$CONFIG_FILE" "$path" "$value" << 'PYEOF'
-import json, sys
-
-config_file = sys.argv[1]
-path = sys.argv[2]
-value = sys.argv[3]
-
-try:
-    parsed = json.loads(value)
-except (json.JSONDecodeError, ValueError):
-    parsed = value
-
-try:
-    with open(config_file) as f:
-        config = json.load(f)
-    parts = path.split(".")
-    obj = config
-    for part in parts[:-1]:
-        obj = obj.setdefault(part, {})
-    obj[parts[-1]] = parsed
-    with open(config_file, "w") as f:
-        json.dump(config, f, indent=2)
-    print(f"Set {path}")
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
+        oc_config_set "$path" "$value"
     fi
 }
 
 config_unset() {
-    local path="$1"
-
-    if command -v openclaw &>/dev/null; then
-        openclaw config unset "$path" 2>&1
-    else
-        python3 - "$CONFIG_FILE" "$path" << 'PYEOF'
-import json, sys
-
-config_file = sys.argv[1]
-path = sys.argv[2]
-
-try:
-    with open(config_file) as f:
-        config = json.load(f)
-    parts = path.split(".")
-    obj = config
-    for part in parts[:-1]:
-        if part not in obj:
-            print(f"Path not found: {path}")
-            sys.exit(0)
-        obj = obj[part]
-    if parts[-1] in obj:
-        del obj[parts[-1]]
-        with open(config_file, "w") as f:
-            json.dump(config, f, indent=2)
-        print(f"Unset {path}")
-    else:
-        print(f"Key not found: {parts[-1]}")
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
-    fi
+    oc_config_unset "$1"
 }
 
-# ─── Array helpers (append/remove from JSON arrays in config) ─────────────────
-
 array_add() {
-    local path="$1"
-    local value="$2"
-
-    python3 - "$CONFIG_FILE" "$path" "$value" << 'PYEOF'
-import json, sys
-
-config_file = sys.argv[1]
-path = sys.argv[2]
-value = sys.argv[3]
-
-try:
-    with open(config_file) as f:
-        config = json.load(f)
-    parts = path.split(".")
-    obj = config
-    for part in parts[:-1]:
-        obj = obj.setdefault(part, {})
-    arr = obj.setdefault(parts[-1], [])
-    if value not in arr:
-        arr.append(value)
-        with open(config_file, "w") as f:
-            json.dump(config, f, indent=2)
-        print(f"Added {value} to {path}")
-    else:
-        print(f"{value} already in {path}")
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
+    oc_array_add_if_absent "$1" "$2"
 }
 
 array_remove() {
     local path="$1"
     local value="$2"
+    local config_file="${OPENCLAW_DIR}/openclaw.json"
 
-    python3 - "$CONFIG_FILE" "$path" "$value" << 'PYEOF'
+    python3 - "$config_file" "$path" "$value" << 'PYEOF'
 import json, sys
 
 config_file = sys.argv[1]

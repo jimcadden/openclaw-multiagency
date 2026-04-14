@@ -902,6 +902,236 @@ if should_run "sync_no_agents"; then
     teardown_env
 fi
 
+# ─── config-helper.sh tests ──────────────────────────────────────────────────
+
+CONFIG_HELPER="$REPO_ROOT/scripts/lib/config-helper.sh"
+
+section "config-helper.sh — oc_agents_add fallback"
+
+if should_run "config_helper_agents_add"; then
+    setup_env
+    setup_openclaw
+
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_agents_add "testbot" "/tmp/testbot"
+    ) > /dev/null 2>&1
+
+    agent_found=$(python3 -c "
+import json
+with open('$TMP_OC_DIR/openclaw.json') as f:
+    c = json.load(f)
+agents = [a.get('id') for a in c.get('agents',{}).get('list',[])]
+print('yes' if 'testbot' in agents else 'no')
+" 2>/dev/null)
+
+    if [ "$agent_found" = "yes" ]; then
+        pass "config_helper_agents_add: agent added to agents.list via fallback"
+    else
+        fail "config_helper_agents_add: agent not found in agents.list"
+    fi
+
+    teardown_env
+fi
+
+if should_run "config_helper_agents_add_idempotent"; then
+    setup_env
+    setup_openclaw
+
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_agents_add "testbot" "/tmp/testbot"
+        oc_agents_add "testbot" "/tmp/testbot"
+    ) > /dev/null 2>&1
+
+    count=$(python3 -c "
+import json
+with open('$TMP_OC_DIR/openclaw.json') as f:
+    c = json.load(f)
+print(sum(1 for a in c.get('agents',{}).get('list',[]) if a.get('id') == 'testbot'))
+" 2>/dev/null)
+
+    if [ "$count" = "1" ]; then
+        pass "config_helper_agents_add_idempotent: duplicate add is idempotent"
+    else
+        fail "config_helper_agents_add_idempotent: found $count entries, expected 1"
+    fi
+
+    teardown_env
+fi
+
+section "config-helper.sh — oc_agents_bind fallback"
+
+if should_run "config_helper_agents_bind"; then
+    setup_env
+    setup_openclaw
+
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_agents_add "testbot" "/tmp/testbot"
+        oc_agents_bind "testbot" "discord:testbot"
+    ) > /dev/null 2>&1
+
+    binding_found=$(python3 -c "
+import json
+with open('$TMP_OC_DIR/openclaw.json') as f:
+    c = json.load(f)
+for b in c.get('bindings',[]):
+    if b.get('agentId') == 'testbot' and b.get('match',{}).get('channel') == 'discord':
+        print('yes'); break
+else:
+    print('no')
+" 2>/dev/null)
+
+    if [ "$binding_found" = "yes" ]; then
+        pass "config_helper_agents_bind: binding created via fallback"
+    else
+        fail "config_helper_agents_bind: binding not found"
+    fi
+
+    teardown_env
+fi
+
+section "config-helper.sh — oc_config_set_if_missing"
+
+if should_run "config_helper_set_if_missing"; then
+    setup_env
+    setup_openclaw
+
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_config_set_if_missing "session.idleMinutes" "10080"
+    ) > /dev/null 2>&1
+
+    val=$(python3 -c "
+import json
+with open('$TMP_OC_DIR/openclaw.json') as f:
+    c = json.load(f)
+print(c.get('session',{}).get('idleMinutes','missing'))
+" 2>/dev/null)
+
+    if [ "$val" = "10080" ]; then
+        pass "config_helper_set_if_missing: value set when missing"
+    else
+        fail "config_helper_set_if_missing: expected 10080, got $val"
+    fi
+
+    # Set again - should not overwrite
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_config_set_json "session.idleMinutes" "999"
+        oc_config_set_if_missing "session.idleMinutes" "10080"
+    ) > /dev/null 2>&1
+
+    val2=$(python3 -c "
+import json
+with open('$TMP_OC_DIR/openclaw.json') as f:
+    c = json.load(f)
+print(c.get('session',{}).get('idleMinutes','missing'))
+" 2>/dev/null)
+
+    if [ "$val2" = "999" ]; then
+        pass "config_helper_set_if_missing: does not overwrite existing value"
+    else
+        fail "config_helper_set_if_missing: expected 999 (existing), got $val2"
+    fi
+
+    teardown_env
+fi
+
+section "config-helper.sh — oc_array_add_if_absent"
+
+if should_run "config_helper_array_add"; then
+    setup_env
+    setup_openclaw
+
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_array_add_if_absent "skills.load.extraDirs" "/path/to/skills"
+        oc_array_add_if_absent "skills.load.extraDirs" "/path/to/skills"
+        oc_array_add_if_absent "skills.load.extraDirs" "/another/path"
+    ) > /dev/null 2>&1
+
+    result=$(python3 -c "
+import json
+with open('$TMP_OC_DIR/openclaw.json') as f:
+    c = json.load(f)
+dirs = c.get('skills',{}).get('load',{}).get('extraDirs',[])
+print(len(dirs), '/path/to/skills' in dirs, '/another/path' in dirs)
+" 2>/dev/null)
+
+    if [ "$result" = "2 True True" ]; then
+        pass "config_helper_array_add: idempotent array add works (2 unique elements)"
+    else
+        fail "config_helper_array_add: expected '2 True True', got '$result'"
+    fi
+
+    teardown_env
+fi
+
+section "config-helper.sh — oc_config_set and oc_config_get"
+
+if should_run "config_helper_set_get"; then
+    setup_env
+    setup_openclaw
+
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_config_set "channels.discord.enabled" "true"
+        oc_config_set_json "channels.discord.groupPolicy" '"allowlist"'
+    ) > /dev/null 2>&1
+
+    enabled=$(
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_config_get "channels.discord.enabled"
+    )
+
+    # oc_config_get returns JSON, so string values include quotes
+    if [ "$enabled" = '"true"' ] || [ "$enabled" = "true" ]; then
+        pass "config_helper_set_get: set and get round-trip works"
+    else
+        fail "config_helper_set_get: expected 'true' or '\"true\"', got '$enabled'"
+    fi
+
+    teardown_env
+fi
+
+section "config-helper.sh — oc_config_unset"
+
+if should_run "config_helper_unset"; then
+    setup_env
+    setup_openclaw
+
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_config_set_json "channels.discord.enabled" "true"
+        oc_config_unset "channels.discord.enabled"
+    ) > /dev/null 2>&1
+
+    val=$(
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_config_get "channels.discord.enabled"
+    )
+
+    if [ "$val" = "null" ]; then
+        pass "config_helper_unset: key removed successfully"
+    else
+        fail "config_helper_unset: expected null, got '$val'"
+    fi
+
+    teardown_env
+fi
+
 # ─── secrets-helper.sh tests ──────────────────────────────────────────────────
 
 SECRETS_HELPER="$REPO_ROOT/scripts/lib/secrets-helper.sh"

@@ -81,15 +81,19 @@ CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 KIT_DIR="${KIT_DIR:-$WORKSPACE_DIR/kit}"
 AGENT_ID=""
 
-# ─── Source secrets helper ───────────────────────────────────────────────────
+# ─── Source helpers ───────────────────────────────────────────────────────────
 
 SECRETS_HELPER="$KIT_DIR/scripts/lib/secrets-helper.sh"
 if [ -f "$SECRETS_HELPER" ]; then
-    # shellcheck source=scripts/lib/secrets-helper.sh
     source "$SECRETS_HELPER"
 else
     log_warn "secrets-helper.sh not found at $SECRETS_HELPER"
     log_warn "Token will need to be stored manually."
+fi
+
+CONFIG_HELPER="$KIT_DIR/scripts/lib/config-helper.sh"
+if [ -f "$CONFIG_HELPER" ]; then
+    source "$CONFIG_HELPER"
 fi
 
 # ─── Args ─────────────────────────────────────────────────────────────────────
@@ -334,94 +338,25 @@ if command -v openclaw &>/dev/null; then
     openclaw config set "channels.telegram.accounts.${ACCOUNT_ID}.streaming" "partial" 2>/dev/null || true
 fi
 
-# Python for agent list + bindings + allowFrom (array operations)
-python3 - "$CONFIG_FILE" "$AGENT_ID" "$WORKSPACE_PATH" "$ACCOUNT_ID" "$TOKEN_ENV_VAR" "$ALLOW_FROM" "$DM_POLICY" "$AGENT_EXISTS_IN_CONFIG" << 'PYEOF'
-import json, sys
+# Register agent if new
+if ! $AGENT_EXISTS_IN_CONFIG; then
+    oc_agents_add "$AGENT_ID" "$WORKSPACE_PATH"
+fi
 
-config_file = sys.argv[1]
-agent_id = sys.argv[2]
-workspace = sys.argv[3]
-account_id = sys.argv[4]
-token_env_var = sys.argv[5]
-allow_from_str = sys.argv[6] if len(sys.argv) > 6 else ""
-dm_policy = sys.argv[7] if len(sys.argv) > 7 else "pairing"
-agent_exists = sys.argv[8] == "true" if len(sys.argv) > 8 else False
+# Set allowFrom if provided
+if [ -n "$ALLOW_FROM" ]; then
+    IFS=',' read -ra ID_ARRAY <<< "$ALLOW_FROM"
+    for sid in "${ID_ARRAY[@]}"; do
+        sid=$(echo "$sid" | xargs)
+        [ -n "$sid" ] && oc_array_add_if_absent "channels.telegram.accounts.${ACCOUNT_ID}.allowFrom" "$sid"
+    done
+fi
 
-try:
-    with open(config_file) as f:
-        config = json.load(f)
+# Add binding
+oc_agents_bind "$AGENT_ID" "telegram:$ACCOUNT_ID"
 
-    if not agent_exists:
-        agents = config.setdefault("agents", {}).setdefault("list", [])
-        if not any(a.get("id") == agent_id for a in agents):
-            agents.append({"id": agent_id, "workspace": workspace})
-            print(f"Added agent '{agent_id}' to agents.list")
-        else:
-            print(f"Agent '{agent_id}' already in agents.list")
-    else:
-        print(f"Agent '{agent_id}' already in config")
-
-    telegram = config.setdefault("channels", {}).setdefault("telegram", {})
-    accounts = telegram.setdefault("accounts", {})
-
-    acct = accounts.setdefault(account_id, {})
-    acct["enabled"] = True
-    acct["dmPolicy"] = dm_policy
-    # SecretRef for botToken (never plaintext)
-    if "botToken" not in acct or not isinstance(acct.get("botToken"), dict):
-        acct["botToken"] = {
-            "source": "env",
-            "provider": "default",
-            "id": token_env_var
-        }
-    acct["groupPolicy"] = "allowlist"
-    acct["streaming"] = "partial"
-
-    if allow_from_str.strip():
-        allow_from = []
-        for s in allow_from_str.split(","):
-            s = s.strip()
-            if s:
-                try:
-                    allow_from.append(int(s))
-                except ValueError:
-                    print(f"Warning: skipping non-numeric sender ID: {s}", file=sys.stderr)
-        if allow_from:
-            acct["allowFrom"] = allow_from
-
-    print(f"Added Telegram account '{account_id}'")
-
-    bindings = config.setdefault("bindings", [])
-    binding_exists = any(
-        b.get("agentId") == agent_id and
-        b.get("match", {}).get("channel") == "telegram" and
-        b.get("match", {}).get("accountId") == account_id
-        for b in bindings
-    )
-    if not binding_exists:
-        bindings.append({
-            "agentId": agent_id,
-            "match": {
-                "channel": "telegram",
-                "accountId": account_id
-            }
-        })
-        print(f"Added binding: {agent_id} <-> {account_id}")
-    else:
-        print(f"Binding already exists for {agent_id} <-> {account_id}")
-
-    session = config.setdefault("session", {})
-    if "idleMinutes" not in session:
-        session["idleMinutes"] = 10080
-        print("Set session.idleMinutes to 10080 (7 days, default)")
-
-    with open(config_file, "w") as f:
-        json.dump(config, f, indent=2)
-
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
+# Set session idle timeout if not already configured
+oc_config_set_if_missing "session.idleMinutes" "10080"
 
 log_success "openclaw.json updated"
 

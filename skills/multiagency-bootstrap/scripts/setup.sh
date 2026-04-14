@@ -37,6 +37,12 @@ WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/workspaces}"
 KIT_DIR="${KIT_DIR:-$WORKSPACE_DIR/kit}"
 OPENCLAW_DIR="${OPENCLAW_DIR:-$HOME/.openclaw}"
 
+# Source config helper for CLI-based config manipulation
+CONFIG_HELPER="$KIT_DIR/scripts/lib/config-helper.sh"
+if [ -f "$CONFIG_HELPER" ]; then
+    source "$CONFIG_HELPER"
+fi
+
 log_info() { echo -e "${BLUE}ℹ${NC} $1"; }
 log_tip() { echo -e "${CYAN}💡${NC} $1"; }
 log_success() { echo -e "${GREEN}✓${NC} $1"; }
@@ -337,62 +343,14 @@ update_openclaw_config() {
     # Backup config
     cp "$CONFIG_FILE" "$CONFIG_FILE.backup.$(date +%Y%m%d-%H%M%S)"
     
-    # Use Python to safely update JSON
-    python3 << EOF
-import json
-import sys
+    # Register agent
+    oc_agents_add "$AGENT_NAME" "$WORKSPACE_DIR/$AGENT_NAME"
 
-config_file = "$CONFIG_FILE"
-agent_id = "$AGENT_NAME"
-workspace = "$WORKSPACE_DIR/$AGENT_NAME"
-shared_skills = "$WORKSPACE_DIR/shared/skills"
+    # Add shared skills directory
+    oc_array_add_if_absent "skills.load.extraDirs" "$WORKSPACE_DIR/shared/skills"
 
-try:
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    # ── agents.list ──────────────────────────────────────────────────────────
-    if 'agents' not in config:
-        config['agents'] = {}
-    if 'list' not in config['agents']:
-        config['agents']['list'] = []
-
-    existing = [a for a in config['agents']['list'] if a.get('id') == agent_id]
-    if not existing:
-        config['agents']['list'].append({'id': agent_id, 'workspace': workspace})
-        print(f"Added agent '{agent_id}' to agents.list")
-    else:
-        print(f"Agent '{agent_id}' already in agents.list")
-
-    # ── skills.load.extraDirs ────────────────────────────────────────────────
-    if 'skills' not in config:
-        config['skills'] = {}
-    if 'load' not in config['skills']:
-        config['skills']['load'] = {}
-    extra_dirs = config['skills']['load'].get('extraDirs', [])
-    if shared_skills not in extra_dirs:
-        extra_dirs.append(shared_skills)
-        config['skills']['load']['extraDirs'] = extra_dirs
-        print(f"Added '{shared_skills}' to skills.load.extraDirs")
-    else:
-        print(f"skills.load.extraDirs already contains shared/skills")
-
-    # ── session.idleMinutes ──────────────────────────────────────────────────
-    if 'session' not in config:
-        config['session'] = {}
-    if 'idleMinutes' not in config['session']:
-        config['session']['idleMinutes'] = 10080
-        print("Set session.idleMinutes to 10080 (7 days, default)")
-    else:
-        print(f"session.idleMinutes already set: {config['session']['idleMinutes']}")
-
-    with open(config_file, 'w') as f:
-        json.dump(config, f, indent=2)
-
-except Exception as e:
-    print(f"Error updating config: {e}", file=sys.stderr)
-    sys.exit(1)
-EOF
+    # Set session idle timeout if not already configured
+    oc_config_set_if_missing "session.idleMinutes" "10080"
 
     log_success "OpenClaw config updated"
 }

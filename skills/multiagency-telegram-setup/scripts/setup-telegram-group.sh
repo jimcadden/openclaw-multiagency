@@ -67,6 +67,18 @@ AGENT_ID=""
 ACCOUNT_ID=""
 GROUP_CHAT_ID=""
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AUTO_WORKSPACE="$(dirname "$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")")"
+KIT_DIR="${KIT_DIR:-$AUTO_WORKSPACE/kit}"
+if [ ! -d "$KIT_DIR" ] && [ -d "$AUTO_WORKSPACE" ]; then
+    KIT_DIR="$AUTO_WORKSPACE"
+fi
+
+CONFIG_HELPER="$KIT_DIR/scripts/lib/config-helper.sh"
+if [ -f "$CONFIG_HELPER" ]; then
+    source "$CONFIG_HELPER"
+fi
+
 # ─── Args ─────────────────────────────────────────────────────────────────────
 
 while [[ $# -gt 0 ]]; do
@@ -303,72 +315,29 @@ fi
 
 log_step "Updating openclaw.json"
 
-python3 - "$CONFIG_FILE" "$ACCOUNT_ID" "$GROUP_CHAT_ID" "$SENDER_IDS" << 'PYEOF'
-import json, sys
+GROUP_BASE="channels.telegram.groups.${GROUP_CHAT_ID}"
 
-config_file = sys.argv[1]
-account_id = sys.argv[2]
-group_chat_id = sys.argv[3]
-sender_ids_str = sys.argv[4] if len(sys.argv) > 4 else ""
+oc_config_set_json "${GROUP_BASE}.enabled" "true"
+oc_config_set_json "${GROUP_BASE}.requireMention" "false"
+oc_config_set "${GROUP_BASE}.groupPolicy" "open"
+log_info "Added group $GROUP_CHAT_ID to channels.telegram.groups"
 
-try:
-    with open(config_file) as f:
-        config = json.load(f)
+ACCT_BASE="channels.telegram.accounts.${ACCOUNT_ID}"
+oc_config_set "${ACCT_BASE}.groupPolicy" "allowlist"
 
-    telegram = config.setdefault("channels", {}).setdefault("telegram", {})
+if [ -n "$SENDER_IDS" ]; then
+    IFS=',' read -ra ID_ARRAY <<< "$SENDER_IDS"
+    for sid in "${ID_ARRAY[@]}"; do
+        sid=$(echo "$sid" | xargs)
+        if [ -n "$sid" ]; then
+            oc_array_add_if_absent "${ACCT_BASE}.allowFrom" "$sid"
+            oc_array_add_if_absent "${ACCT_BASE}.groupAllowFrom" "$sid"
+        fi
+    done
+    log_info "Updated allowFrom and groupAllowFrom on account '$ACCOUNT_ID'"
+fi
 
-    # Add group to channels.telegram.groups
-    groups = telegram.setdefault("groups", {})
-    if group_chat_id not in groups:
-        groups[group_chat_id] = {}
-    groups[group_chat_id]["enabled"] = True
-    groups[group_chat_id]["requireMention"] = False
-    groups[group_chat_id]["groupPolicy"] = "open"
-    print(f"Added group {group_chat_id} to channels.telegram.groups")
-
-    # Update account: groupPolicy, allowFrom, groupAllowFrom
-    accounts = telegram.get("accounts", {})
-    if account_id not in accounts:
-        print(f"Account '{account_id}' not found", file=sys.stderr)
-        sys.exit(1)
-
-    acct = accounts[account_id]
-    acct["groupPolicy"] = "allowlist"
-
-    if sender_ids_str.strip():
-        sender_ids = []
-        for s in sender_ids_str.split(","):
-            s = s.strip()
-            if s:
-                try:
-                    sender_ids.append(int(s))
-                except ValueError:
-                    print(f"Warning: skipping non-numeric sender ID: {s}", file=sys.stderr)
-
-        if sender_ids:
-            existing_allow = set(acct.get("allowFrom", []))
-            existing_allow.update(sender_ids)
-            acct["allowFrom"] = sorted(existing_allow)
-
-            existing_group_allow = set(acct.get("groupAllowFrom", []))
-            existing_group_allow.update(sender_ids)
-            acct["groupAllowFrom"] = sorted(existing_group_allow)
-
-            print(f"Updated allowFrom and groupAllowFrom on account '{account_id}'")
-
-    # Ensure session idle timeout is configured
-    session = config.setdefault("session", {})
-    if "idleMinutes" not in session:
-        session["idleMinutes"] = 10080
-        print("Set session.idleMinutes to 10080 (7 days, default)")
-
-    with open(config_file, "w") as f:
-        json.dump(config, f, indent=2)
-
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
+oc_config_set_if_missing "session.idleMinutes" "10080"
 
 log_success "openclaw.json updated"
 

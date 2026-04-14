@@ -81,15 +81,19 @@ CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 KIT_DIR="${KIT_DIR:-$WORKSPACE_DIR/kit}"
 AGENT_ID=""
 
-# ─── Source secrets helper ───────────────────────────────────────────────────
+# ─── Source helpers ───────────────────────────────────────────────────────────
 
 SECRETS_HELPER="$KIT_DIR/scripts/lib/secrets-helper.sh"
 if [ -f "$SECRETS_HELPER" ]; then
-    # shellcheck source=scripts/lib/secrets-helper.sh
     source "$SECRETS_HELPER"
 else
     log_warn "secrets-helper.sh not found at $SECRETS_HELPER"
     log_warn "Token will need to be stored manually."
+fi
+
+CONFIG_HELPER="$KIT_DIR/scripts/lib/config-helper.sh"
+if [ -f "$CONFIG_HELPER" ]; then
+    source "$CONFIG_HELPER"
 fi
 
 # ─── Args ─────────────────────────────────────────────────────────────────────
@@ -377,94 +381,16 @@ if command -v openclaw &>/dev/null; then
     fi
 fi
 
-# Python fallback for agent list + bindings (array-append operations)
-python3 - "$CONFIG_FILE" "$AGENT_ID" "$WORKSPACE_PATH" "$ACCOUNT_ID" "$TOKEN_ENV_VAR" "$SERVER_ID" "$USER_ID" "$REQUIRE_MENTION" "$AGENT_EXISTS_IN_CONFIG" << 'PYEOF'
-import json, sys
+# Register agent if new
+if ! $AGENT_EXISTS_IN_CONFIG; then
+    oc_agents_add "$AGENT_ID" "$WORKSPACE_PATH"
+fi
 
-config_file = sys.argv[1]
-agent_id = sys.argv[2]
-workspace = sys.argv[3]
-account_id = sys.argv[4]
-token_env_var = sys.argv[5]
-server_id = sys.argv[6]
-user_id = sys.argv[7] if len(sys.argv) > 7 else ""
-require_mention = sys.argv[8] == "true" if len(sys.argv) > 8 else True
-agent_exists = sys.argv[9] == "true" if len(sys.argv) > 9 else False
+# Add binding
+oc_agents_bind "$AGENT_ID" "discord:$ACCOUNT_ID"
 
-try:
-    with open(config_file) as f:
-        config = json.load(f)
-
-    # Add agent if new
-    if not agent_exists:
-        agents = config.setdefault("agents", {}).setdefault("list", [])
-        if not any(a.get("id") == agent_id for a in agents):
-            agents.append({"id": agent_id, "workspace": workspace})
-            print(f"Added agent '{agent_id}' to agents.list")
-        else:
-            print(f"Agent '{agent_id}' already in agents.list")
-    else:
-        print(f"Agent '{agent_id}' already in config")
-
-    # Ensure discord account exists with SecretRef token (may already be set by openclaw config set)
-    discord = config.setdefault("channels", {}).setdefault("discord", {})
-    discord["enabled"] = True
-    accounts = discord.setdefault("accounts", {})
-    acct = accounts.setdefault(account_id, {})
-    acct["enabled"] = True
-    if "token" not in acct or not isinstance(acct.get("token"), dict):
-        acct["token"] = {
-            "source": "env",
-            "provider": "default",
-            "id": token_env_var
-        }
-
-    # Ensure guild config
-    guilds = acct.setdefault("guilds", {})
-    guild_config = guilds.setdefault(server_id, {})
-    guild_config["requireMention"] = require_mention
-    if user_id.strip():
-        users = []
-        for s in user_id.split(","):
-            s = s.strip()
-            if s:
-                users.append(s)
-        if users:
-            guild_config["users"] = users
-
-    # Add binding
-    bindings = config.setdefault("bindings", [])
-    binding_exists = any(
-        b.get("agentId") == agent_id and
-        b.get("match", {}).get("channel") == "discord" and
-        b.get("match", {}).get("accountId") == account_id
-        for b in bindings
-    )
-    if not binding_exists:
-        bindings.append({
-            "agentId": agent_id,
-            "match": {
-                "channel": "discord",
-                "accountId": account_id
-            }
-        })
-        print(f"Added binding: {agent_id} <-> {account_id}")
-    else:
-        print(f"Binding already exists for {agent_id} <-> {account_id}")
-
-    # Ensure session idle timeout is configured
-    session = config.setdefault("session", {})
-    if "idleMinutes" not in session:
-        session["idleMinutes"] = 10080
-        print("Set session.idleMinutes to 10080 (7 days, default)")
-
-    with open(config_file, "w") as f:
-        json.dump(config, f, indent=2)
-
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
-    sys.exit(1)
-PYEOF
+# Set session idle timeout if not already configured
+oc_config_set_if_missing "session.idleMinutes" "10080"
 
 log_success "openclaw.json updated"
 

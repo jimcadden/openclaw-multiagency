@@ -10,6 +10,11 @@ set -e
 WORKSPACE_DIR="${WORKSPACE_DIR:-$HOME/workspaces}"
 KIT_DIR="$WORKSPACE_DIR/kit"
 
+CONFIG_HELPER="$KIT_DIR/scripts/lib/config-helper.sh"
+if [ -f "$CONFIG_HELPER" ]; then
+    source "$CONFIG_HELPER"
+fi
+
 errors=0
 warnings=0
 
@@ -63,13 +68,8 @@ echo "Checking skills config..."
 OC_CONFIG="${OPENCLAW_DIR:-$HOME/.openclaw}/openclaw.json"
 if [ -f "$OC_CONFIG" ]; then
     SHARED_SKILLS="$WORKSPACE_DIR/shared/skills"
-    if python3 -c "
-import json, sys
-with open('$OC_CONFIG') as f:
-    c = json.load(f)
-dirs = c.get('skills', {}).get('load', {}).get('extraDirs', [])
-sys.exit(0 if '$SHARED_SKILLS' in dirs else 1)
-" 2>/dev/null; then
+    EXTRA_DIRS=$(oc_config_get "skills.load.extraDirs" 2>/dev/null || echo "[]")
+    if echo "$EXTRA_DIRS" | grep -q "$SHARED_SKILLS"; then
         check_pass "skills.load.extraDirs contains shared/skills"
     else
         check_fail "skills.load.extraDirs missing '$SHARED_SKILLS'"

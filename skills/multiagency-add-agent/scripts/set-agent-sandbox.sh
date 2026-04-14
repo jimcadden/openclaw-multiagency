@@ -25,6 +25,16 @@ log_error()   { echo -e "${RED}✗${NC} $1"; }
 # ─── Defaults ─────────────────────────────────────────────────────────────────
 
 OPENCLAW_DIR="${OPENCLAW_DIR:-$HOME/.openclaw}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+AUTO_WORKSPACE="$(dirname "$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")")"
+KIT_DIR="${KIT_DIR:-$AUTO_WORKSPACE/kit}"
+if [ ! -d "$KIT_DIR" ]; then KIT_DIR="${KIT_DIR:-$HOME/workspaces/kit}"; fi
+
+CONFIG_HELPER="$KIT_DIR/scripts/lib/config-helper.sh"
+if [ -f "$CONFIG_HELPER" ]; then
+    source "$CONFIG_HELPER"
+fi
 AGENT_ID=""
 MODE=""
 
@@ -78,44 +88,31 @@ fi
 
 # ─── Update ───────────────────────────────────────────────────────────────────
 
-python3 << EOF
-import json, sys
-
-config_file = "$CONFIG_FILE"
-agent_id = "$AGENT_ID"
-mode = "$MODE"
-
-try:
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-
-    agents_list = config.get('agents', {}).get('list', [])
-    matches = [a for a in agents_list if a.get('id') == agent_id]
-
-    if not matches:
-        print(f"Agent '{agent_id}' not found in openclaw.json", file=sys.stderr)
-        known = [a.get('id') for a in agents_list]
-        print(f"Known agents: {', '.join(known) if known else '(none)'}", file=sys.stderr)
-        sys.exit(1)
-
-    entry = matches[0]
-    prev = entry.get('sandbox', {}).get('mode', 'inherit')
-
-    if mode == "off":
-        entry['sandbox'] = {'mode': 'off'}
-        print(f"Set sandbox mode for '{agent_id}': {prev} -> off")
-    else:
-        if 'sandbox' in entry:
-            del entry['sandbox']
-        print(f"Removed sandbox override for '{agent_id}' (was: {prev}); now inherits global default")
-
-    with open(config_file, 'w') as f:
-        json.dump(config, f, indent=2)
-
-except Exception as e:
-    print(f"Error: {e}", file=sys.stderr)
+# Find the agent index in agents.list
+IDX=$(python3 -c "
+import json
+with open('$CONFIG_FILE') as f:
+    c = json.load(f)
+for i, a in enumerate(c.get('agents',{}).get('list',[])):
+    if a.get('id') == '$AGENT_ID':
+        print(i); break
+else:
+    import sys
+    known = [a.get('id','') for a in c.get('agents',{}).get('list',[])]
+    print(f\"Agent '$AGENT_ID' not found. Known: {', '.join(known) if known else '(none)'}\", file=sys.stderr)
     sys.exit(1)
-EOF
+" 2>&1)
+
+if [ $? -ne 0 ] || [ -z "$IDX" ]; then
+    log_error "$IDX"
+    exit 1
+fi
+
+if [ "$MODE" = "off" ]; then
+    oc_config_set_json "agents.list[$IDX].sandbox.mode" '"off"'
+else
+    oc_config_unset "agents.list[$IDX].sandbox"
+fi
 
 log_success "openclaw.json updated"
 log_warn "Restart the gateway to apply: openclaw gateway restart"
