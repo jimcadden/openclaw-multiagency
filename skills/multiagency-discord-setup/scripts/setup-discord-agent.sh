@@ -349,36 +349,24 @@ fi
 
 log_step "Updating openclaw.json"
 
-# Use openclaw config set for simple key-value writes
-if command -v openclaw &>/dev/null; then
-    openclaw config set channels.discord.enabled true --strict-json 2>/dev/null || true
-fi
+oc_config_set_json "channels.discord.enabled" "true"
 
 # Write SecretRef for the bot token
 if type write_secret_ref &>/dev/null; then
     write_secret_ref "channels.discord.accounts.${ACCOUNT_ID}.token" "default" "env" "$TOKEN_ENV_VAR" || true
 fi
 
-# Use openclaw config set for guild settings where possible
-if command -v openclaw &>/dev/null; then
-    openclaw config set "channels.discord.accounts.${ACCOUNT_ID}.enabled" true --strict-json 2>/dev/null || true
-    openclaw config set "channels.discord.accounts.${ACCOUNT_ID}.guilds.${SERVER_ID}.requireMention" "$REQUIRE_MENTION" --strict-json 2>/dev/null || true
-    if [ -n "$USER_ID" ]; then
-        # Build users array from comma-separated IDs
-        USERS_JSON="["
-        first=true
-        IFS=',' read -ra ID_ARRAY <<< "$USER_ID"
-        for uid in "${ID_ARRAY[@]}"; do
-            uid=$(echo "$uid" | xargs)
-            if [ -n "$uid" ]; then
-                $first || USERS_JSON+=","
-                USERS_JSON+="\"$uid\""
-                first=false
-            fi
-        done
-        USERS_JSON+="]"
-        openclaw config set "channels.discord.accounts.${ACCOUNT_ID}.guilds.${SERVER_ID}.users" "$USERS_JSON" --strict-json 2>/dev/null || true
-    fi
+oc_config_set_json "channels.discord.accounts.${ACCOUNT_ID}.enabled" "true"
+
+GUILD_BASE="channels.discord.accounts.${ACCOUNT_ID}.guilds.${SERVER_ID}"
+oc_config_set_json "${GUILD_BASE}.requireMention" "$REQUIRE_MENTION"
+
+if [ -n "$USER_ID" ]; then
+    IFS=',' read -ra ID_ARRAY <<< "$USER_ID"
+    for uid in "${ID_ARRAY[@]}"; do
+        uid=$(echo "$uid" | xargs)
+        [ -n "$uid" ] && oc_array_add_if_absent "${GUILD_BASE}.users" "$uid"
+    done
 fi
 
 # Register agent if new
