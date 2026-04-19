@@ -350,6 +350,7 @@ fi
 log_step "Updating openclaw.json"
 
 oc_config_set_json "channels.discord.enabled" "true"
+oc_config_set_if_missing "channels.discord.groupPolicy" '"allowlist"'
 
 # Write SecretRef for the bot token
 if type write_secret_ref &>/dev/null; then
@@ -359,6 +360,7 @@ fi
 oc_config_set_json "channels.discord.accounts.${ACCOUNT_ID}.enabled" "true"
 
 GUILD_BASE="channels.discord.accounts.${ACCOUNT_ID}.guilds.${SERVER_ID}"
+oc_config_init_object "$GUILD_BASE"
 oc_config_set_json "${GUILD_BASE}.requireMention" "$REQUIRE_MENTION"
 
 if [ -n "$USER_ID" ]; then

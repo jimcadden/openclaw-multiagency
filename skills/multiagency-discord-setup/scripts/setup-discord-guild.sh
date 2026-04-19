@@ -320,6 +320,7 @@ log_step "Updating openclaw.json"
 
 GUILD_BASE="channels.discord.accounts.${ACCOUNT_ID}.guilds.${GUILD_ID}"
 
+oc_config_init_object "$GUILD_BASE"
 oc_config_set_json "${GUILD_BASE}.requireMention" "$REQUIRE_MENTION"
 
 if [ -n "$USER_IDS" ]; then

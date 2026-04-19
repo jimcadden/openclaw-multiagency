@@ -348,6 +348,7 @@ PYEOF
                 log_error "Specify --user <id> or --role <id>"
                 exit 1
             fi
+            oc_config_init_object "channels.discord.accounts.${account}.guilds.${guild}"
             if [ -n "$user" ]; then
                 array_add "channels.discord.accounts.${account}.guilds.${guild}.users" "$user"
                 log_success "Added user $user to guild $guild allowlist"
@@ -413,6 +414,7 @@ cmd_guild() {
     case "$subcmd" in
         add)
             local base="channels.discord.accounts.${account}.guilds.${guild}"
+            oc_config_init_object "$base"
             config_set "${base}.requireMention" "$require_mention" --strict-json
             if [ -n "$users" ]; then
                 # Build JSON array from comma-separated IDs
@@ -477,6 +479,7 @@ cmd_channel() {
                 exit 1
             fi
             local base="channels.discord.accounts.${account}.guilds.${guild}.channels.${channel}"
+            oc_config_init_object "$base"
             config_set "${base}.allow" "true" --strict-json
             if [ -n "$require_mention" ]; then
                 config_set "${base}.requireMention" "$require_mention" --strict-json
@@ -567,9 +570,11 @@ cmd_mention() {
     esac
 
     if [ -n "$channel" ]; then
+        oc_config_init_object "channels.discord.accounts.${account}.guilds.${guild}.channels.${channel}"
         config_set "channels.discord.accounts.${account}.guilds.${guild}.channels.${channel}.requireMention" "$value" --strict-json
         log_success "Set requireMention=$value for channel $channel in guild $guild"
     else
+        oc_config_init_object "channels.discord.accounts.${account}.guilds.${guild}"
         config_set "channels.discord.accounts.${account}.guilds.${guild}.requireMention" "$value" --strict-json
         log_success "Set requireMention=$value for guild $guild"
     fi

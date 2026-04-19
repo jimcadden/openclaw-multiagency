@@ -1132,6 +1132,63 @@ if should_run "config_helper_unset"; then
     teardown_env
 fi
 
+section "config-helper.sh — oc_config_init_object"
+
+if should_run "config_helper_init_object_creates"; then
+    setup_env
+    setup_openclaw
+
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_config_init_object "channels.discord.accounts.main.guilds.123456"
+    ) > /dev/null 2>&1
+
+    result=$(python3 -c "
+import json
+with open('$TMP_OC_DIR/openclaw.json') as f:
+    c = json.load(f)
+guild = c.get('channels',{}).get('discord',{}).get('accounts',{}).get('main',{}).get('guilds',{}).get('123456',None)
+print('yes' if isinstance(guild, dict) else 'no')
+" 2>/dev/null)
+
+    if [ "$result" = "yes" ]; then
+        pass "config_helper_init_object_creates: nested path created as objects"
+    else
+        fail "config_helper_init_object_creates: path not created"
+    fi
+
+    teardown_env
+fi
+
+if should_run "config_helper_init_object_preserves"; then
+    setup_env
+    setup_openclaw
+
+    (
+        export OPENCLAW_DIR="$TMP_OC_DIR"
+        source "$CONFIG_HELPER"
+        oc_config_set_json "channels.discord.accounts.main.guilds.123456.requireMention" "true"
+        oc_config_init_object "channels.discord.accounts.main.guilds.123456"
+    ) > /dev/null 2>&1
+
+    result=$(python3 -c "
+import json
+with open('$TMP_OC_DIR/openclaw.json') as f:
+    c = json.load(f)
+guild = c.get('channels',{}).get('discord',{}).get('accounts',{}).get('main',{}).get('guilds',{}).get('123456',{})
+print('yes' if guild.get('requireMention') is True else 'no')
+" 2>/dev/null)
+
+    if [ "$result" = "yes" ]; then
+        pass "config_helper_init_object_preserves: existing data not overwritten"
+    else
+        fail "config_helper_init_object_preserves: existing data was lost"
+    fi
+
+    teardown_env
+fi
+
 # ─── secrets-helper.sh tests ──────────────────────────────────────────────────
 
 SECRETS_HELPER="$REPO_ROOT/scripts/lib/secrets-helper.sh"

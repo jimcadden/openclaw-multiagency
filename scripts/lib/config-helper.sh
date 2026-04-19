@@ -18,6 +18,7 @@
 #   oc_config_unset            - remove a config key
 #   oc_config_set_if_missing   - set a value only if the key doesn't exist
 #   oc_array_add_if_absent     - append an element to a JSON array if not present
+#   oc_config_init_object      - ensure a dotted path exists as nested objects
 #   oc_config_read_agents      - read agent IDs from config (Python fallback for reads)
 #   oc_config_read_json        - read a JSON value from config
 
@@ -223,6 +224,51 @@ try:
         print(f"Added to {path}")
     else:
         print(f"{path} already contains value")
+except Exception as e:
+    print(f"Error: {e}", file=sys.stderr)
+    sys.exit(1)
+PYEOF
+}
+
+# ─── Init object path ────────────────────────────────────────────────────────
+#
+# Ensures every segment of a dotted path exists as an object in the config.
+# Uses Python setdefault so existing values are never overwritten.
+# This is needed before setting deeply nested keys (e.g., guild config)
+# because the openclaw CLI may reject intermediate-object creation.
+
+oc_config_init_object() {
+    local path="$1"
+    local config_file="${OPENCLAW_DIR}/openclaw.json"
+
+    if [ ! -f "$config_file" ]; then
+        _ch_err "openclaw.json not found at $config_file"
+        return 1
+    fi
+
+    python3 - "$config_file" "$path" << 'PYEOF'
+import json, sys
+
+config_file = sys.argv[1]
+path = sys.argv[2]
+
+try:
+    with open(config_file) as f:
+        config = json.load(f)
+
+    parts = path.split(".")
+    obj = config
+    created = False
+    for part in parts:
+        if part not in obj or not isinstance(obj.get(part), dict):
+            obj[part] = obj.get(part) if isinstance(obj.get(part), dict) else {}
+            created = True
+        obj = obj[part]
+
+    if created:
+        with open(config_file, "w") as f:
+            json.dump(config, f, indent=2)
+
 except Exception as e:
     print(f"Error: {e}", file=sys.stderr)
     sys.exit(1)
