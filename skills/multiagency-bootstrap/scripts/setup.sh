@@ -243,7 +243,7 @@ create_agent() {
     
     if $DRY_RUN; then
         log_dry "Would copy: $KIT_DIR/workspace-template -> $WORKSPACE_DIR/$AGENT_NAME"
-        log_dry "  (includes BOOT.md, AGENTS.md, SOUL.md, HEARTBEAT.md, MEMORY.md, USER.md, IDENTITY.md)"
+        log_dry "  (includes BOOT.md, AGENTS.md, SOUL.md, HEARTBEAT.md, MEMORY.md, USER.md, IDENTITY.md, memory/)"
         return 0
     fi
     

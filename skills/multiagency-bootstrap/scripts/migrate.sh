@@ -537,6 +537,7 @@ setup_agent_symlinks() {
 
     if $DRY_RUN; then
         log_dry "  Would remove legacy symlinks from $agent_dir (if present)"
+        [ ! -d "$agent_dir/memory" ] && log_dry "  Would create: $agent_dir/memory/"
         return 0
     fi
 
@@ -552,6 +553,12 @@ setup_agent_symlinks() {
             log_success "  Removed legacy symlink: $link"
         fi
     done
+
+    # Ensure memory/ directory exists (added to workspace-template in kit v0.4+)
+    if [ ! -d "$agent_dir/memory" ]; then
+        mkdir -p "$agent_dir/memory"
+        log_success "  Created memory/ directory"
+    fi
 
     cd "$WORKSPACE_DIR"
 }
